@@ -26,9 +26,6 @@ const examinerSchema = new mongoose.Schema(
     department: {
       type: String
     },
-    // available_slots: {
-    //   type: [Date] // Array of dates/times for availability
-    // },
     created_at: {
       type: Date,
       default: Date.now

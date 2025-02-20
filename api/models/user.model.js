@@ -4,7 +4,6 @@ const userSchema = new mongoose.Schema(
   {
     user_id: {
       type: String, // Corresponds to student_id or examiner_id
-      required: true,
       unique: true
     },
     username: {
@@ -26,7 +25,6 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      required: true, // "student" or "examiner"
     },
     isAdmin: {
       type: Boolean,

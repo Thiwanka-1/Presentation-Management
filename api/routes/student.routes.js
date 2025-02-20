@@ -5,6 +5,7 @@ import {
     getStudentById,
     updateStudent,
     deleteStudent,
+    getStudentsByDepartment
 
 } from "../controllers/student.controller.js";
 
@@ -14,6 +15,8 @@ const router = express.Router();
 router.post("/add", addStudent);
 
 router.get("/get-std", getAllStudents);
+
+router.get("/get-dept/:department", getStudentsByDepartment);
 
 router.get("/get-std/:id", getStudentById);
 

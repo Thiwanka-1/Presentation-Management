@@ -8,6 +8,13 @@ import PrivateRoute from './components/PrivateRoute';
 
 import AdminProfile from './pages/AdminProfile';
 import ManageUsers from './pages/ManageUsers';
+import AddStudent from './pages/Students/AddStudents';
+import AddExaminer from './pages/Examiners/AddExaminer';
+import AddVenue from './pages/Venues/AddVenue';
+import AddPresentation from './pages/Presentations/AddPresentation';
+import Modal from "react-modal";
+
+Modal.setAppElement("#root");  // Fixes the warning
 
 
 
@@ -23,7 +30,10 @@ export default function App() {
 
       <Route element={<PrivateRoute />}>
         <Route path = "/profile" element = {<Profile />} />
-
+        <Route path = "/add-std" element = {<AddStudent />} />
+        <Route path = "/add-ex" element = {<AddExaminer />} />
+        <Route path = "/add-ven" element = {<AddVenue />} />
+        <Route path = "/add-pres" element = {<AddPresentation />} />
         
 
       </Route>

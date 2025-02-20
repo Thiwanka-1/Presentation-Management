@@ -6,14 +6,22 @@ export const addExaminer = async (req, res) => {
   try {
     const { name, email, password, phone, department } = req.body;
 
+    // Ensure department is provided
+    if (!department) return res.status(400).json({ message: "Department is required" });
+
+    // Convert department to uppercase (for consistency)
+    const departmentCode = department.toUpperCase();
+
     // Check if email already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: "Email already registered" });
 
-    // Get the latest examiner ID
-    const lastExaminer = await Examiner.findOne().sort({ examiner_id: -1 });
+    // Get the latest examiner ID for the same department
+    const lastExaminer = await Examiner.findOne({ department }).sort({ examiner_id: -1 });
     let nextIdNumber = lastExaminer ? parseInt(lastExaminer.examiner_id.slice(-3)) + 1 : 1;
-    const examiner_id = `EX${new Date().getFullYear()}${String(nextIdNumber).padStart(3, "0")}`;
+
+    // Generate new examiner ID with department
+    const examiner_id = `EX${departmentCode}${new Date().getFullYear()}${String(nextIdNumber).padStart(3, "0")}`;
 
     // Hash password
     const hashedPassword = await bcryptjs.hash(password, 10);
@@ -82,6 +90,21 @@ export const deleteExaminer = async (req, res) => {
     await User.findOneAndDelete({ email: deletedExaminer.email });
 
     res.status(200).json({ message: "Examiner and user profile deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+export const getExaminersByDepartment = async (req, res) => {
+  try {
+    const { department } = req.params;
+    const examiners = await Examiner.find({ department });
+
+    if (!examiners.length) {
+      return res.status(404).json({ message: "No examiners found for this department" });
+    }
+
+    res.status(200).json(examiners);
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }

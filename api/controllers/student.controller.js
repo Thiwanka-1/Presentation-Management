@@ -6,14 +6,22 @@ export const addStudent = async (req, res) => {
   try {
     const { name, email, password, phone, department } = req.body;
 
+    // Ensure department is provided
+    if (!department) return res.status(400).json({ message: "Department is required" });
+
+    // Convert department to uppercase (for consistency)
+    const departmentCode = department.toUpperCase();
+
     // Check if email already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: "Email already registered" });
 
-    // Get the latest student ID
-    const lastStudent = await Student.findOne().sort({ student_id: -1 });
+    // Get the latest student ID for the same department
+    const lastStudent = await Student.findOne({ department }).sort({ student_id: -1 });
     let nextIdNumber = lastStudent ? parseInt(lastStudent.student_id.slice(-3)) + 1 : 1;
-    const student_id = `ST${new Date().getFullYear()}${String(nextIdNumber).padStart(3, "0")}`;
+
+    // Generate new student ID with department
+    const student_id = `ST${departmentCode}${new Date().getFullYear()}${String(nextIdNumber).padStart(3, "0")}`;
 
     // Hash password
     const hashedPassword = await bcryptjs.hash(password, 10);
@@ -87,4 +95,18 @@ export const deleteStudent = async (req, res) => {
   }
 };
 
+export const getStudentsByDepartment = async (req, res) => {
+  try {
+    const { department } = req.params;
+    const students = await Student.find({ department });
+
+    if (!students.length) {
+      return res.status(404).json({ message: "No students found for this department" });
+    }
+
+    res.status(200).json(students);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
 

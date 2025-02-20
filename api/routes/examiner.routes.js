@@ -5,6 +5,7 @@ import {
     getExaminerById,
     updateExaminer,
     deleteExaminer,
+    getExaminersByDepartment,
 
  } from "../controllers/examiner.controller.js";
 
@@ -14,6 +15,8 @@ const router = express.Router();
 router.post("/add", addExaminer);
 
 router.get("/get-ex", getAllExaminers);
+
+router.get("/get-dept/:department", getExaminersByDepartment);
 
 router.get("/get-ex/:id", getExaminerById);
 

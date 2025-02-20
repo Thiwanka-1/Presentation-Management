@@ -15,9 +15,6 @@ const venueSchema = new mongoose.Schema(
       type: Number,
       required: true
     },
-    // available_slots: {
-    //   type: [Date] // Array of dates/times for availability
-    // },
     created_at: {
       type: Date,
       default: Date.now
