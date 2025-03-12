@@ -3,6 +3,7 @@ import Examiner from "../models/examiner.model.js";
 import Venue from "../models/venue.model.js";
 import Student from "../models/student.model.js";
 import RescheduleRequest from "../models/reschedule.model.js";
+import mongoose from "mongoose";
 
 // Function to check if time slot is available
 const isTimeSlotAvailable = async (date, startTime, endTime, examiners, venue, students) => {
@@ -78,56 +79,117 @@ export const addPresentation = async (req, res, next) => {
   }
 };
 
-export const checkAvailability = async (req, res) => {
-  try {
-    const { department, userRole, userIds, date, venue } = req.body;
 
-    if (!department || !userRole || !userIds || !date) {
-      return res.status(400).json({ message: "All fields are required" });
+export const checkAvailability = async (req, res, next) => {
+  const { date, department, students, examiners, venue, duration } = req.body;
+
+  try {
+    // Fetch student, examiner, and venue object IDs from the database
+    const studentIds = await Student.find({ student_id: { $in: students } }).select('_id');
+    const examinerIds = await Examiner.find({ examiner_id: { $in: examiners } }).select('_id');
+    const venueObj = await Venue.findOne({ venue_id: venue }).select('_id');
+
+    // Check if all IDs are valid
+    if (!studentIds || !examinerIds || !venueObj) {
+      return res.status(400).json({ success: false, message: 'Invalid student/examiner/venue ID(s)' });
     }
 
-    // Define all possible time slots
-    const allTimeSlots = [
-      { startTime: "08:00", endTime: "09:00" },
-      { startTime: "09:00", endTime: "10:00" },
-      { startTime: "10:00", endTime: "11:00" },
-      { startTime: "11:00", endTime: "12:00" },
-      { startTime: "12:00", endTime: "13:00" },
-      { startTime: "13:00", endTime: "14:00" },
-      { startTime: "14:00", endTime: "15:00" },
-      { startTime: "15:00", endTime: "16:00" },
-      { startTime: "16:00", endTime: "17:00" }
-    ];
+    // Convert to ObjectId references
+    const studentObjectIds = studentIds.map((student) => student._id);
+    const examinerObjectIds = examinerIds.map((examiner) => examiner._id);
+    const venueObjectId = venueObj._id;
 
-    let availableSlots = [];
+    // Fetch presentations for the given date, department, and venue
+    const presentations = await Presentation.find({
+      date,
+      department,
+      venue: venueObjectId,
+      $or: [
+        { students: { $in: studentObjectIds } },
+        { examiners: { $in: examinerObjectIds } }
+      ]
+    });
 
-    // Check each time slot using isTimeSlotAvailable
-    for (let slot of allTimeSlots) {
-      const isAvailable = await isTimeSlotAvailable(
-        date,
-        slot.startTime,
-        slot.endTime,
-        userRole === "examiner" ? userIds : [],
-        venue,
-        userRole === "student" ? userIds : []
-      );
+    // If no presentations exist for the selected day and department, the whole day is free
+    if (presentations.length === 0) {
+      return res.status(200).json([
+        { timeSlot: "08:00 - 18:00", available: true },
+      ]);
+    }
 
-      if (isAvailable) {
-        availableSlots.push(slot);
+    // Convert time range to minutes for easier comparison
+    const convertToMinutes = (time) => {
+      const [hours, minutes] = time.split(":").map(Number);
+      return hours * 60 + minutes;
+    };
+
+    const convertToTime = (minutes) => {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+    };
+
+    // Create an array to store unavailable time slots
+    const unavailableSlots = presentations.map((presentation) => ({
+      start: convertToMinutes(presentation.timeRange.startTime),
+      end: convertToMinutes(presentation.timeRange.endTime),
+    }));
+
+    // Sort the unavailable slots by start time
+    unavailableSlots.sort((a, b) => a.start - b.start);
+
+    // Initialize an array to hold the available time slots
+    const availableSlots = [];
+
+    // Start the check for free time slots from 08:00 AM
+    let previousEndTime = convertToMinutes("08:00"); // Start of the day (08:00 AM)
+
+    // Iterate over the unavailable slots to find gaps
+    for (let slot of unavailableSlots) {
+      // If there's a gap between the previous end time and the current start time
+      if (slot.start > previousEndTime) {
+        const availableStart = previousEndTime;
+        const availableEnd = slot.start;
+
+        // Check if the time slot is large enough to accommodate the required duration
+        if (availableEnd - availableStart >= duration) {
+          availableSlots.push({
+            timeSlot: `${convertToTime(availableStart)} - ${convertToTime(availableEnd)}`,
+            available: true,
+          });
+        }
+      }
+      // Update the previous end time
+      previousEndTime = Math.max(previousEndTime, slot.end);
+    }
+
+    // Check the final gap at the end of the day (until 18:00)
+    if (previousEndTime < convertToMinutes("18:00")) {
+      const availableStart = previousEndTime;
+      const availableEnd = convertToMinutes("18:00");
+
+      // Check if the time slot is large enough to accommodate the required duration
+      if (availableEnd - availableStart >= duration) {
+        availableSlots.push({
+          timeSlot: `${convertToTime(availableStart)} - ${convertToTime(availableEnd)}`,
+          available: true,
+        });
       }
     }
 
-    return res.status(200).json({ availableSlots });
+    // Return the available time slots
+    res.status(200).json(availableSlots);
+
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error", error });
+    console.error("Error: ", error);
+    next(error); // Pass error to the error handling middleware
   }
 };
 
 export const getAllPresentations = async (req, res, next) => {
   try {
     const presentations = await Presentation.find()
-    .populate("students") // ✅ Ensure presenters are populated
+    .populate("students") 
     .populate("examiners")
     .populate("venue");
 
@@ -193,57 +255,6 @@ export const deletePresentation = async (req, res) => {
   }
 };
 
-// export const smartSuggestSlot = async (req, res) => {
-//   try {
-//     const { studentIds, date, numExaminers, duration } = req.body;
-    
-//     // Fetch students and determine department
-//     const students = await Student.find({ _id: { $in: studentIds } });
-//     if (students.length === 0) {
-//       return res.status(400).json({ message: "No valid students found" });
-//     }
-//     const department = students[0].department;
-
-//     // Find available examiners from the same department
-//     const availableExaminers = await Examiner.find({
-//       department,
-//       _id: { $nin: await Presentation.distinct("examiners", { date }) },
-//     }).limit(numExaminers);
-    
-//     if (availableExaminers.length < numExaminers) {
-//       return res.status(400).json({ message: "Not enough available examiners" });
-//     }
-
-//     // Find available venues
-//     const availableVenues = await Venue.find({
-//       _id: { $nin: await Presentation.distinct("venue", { date }) },
-//     }).limit(1);
-
-//     if (availableVenues.length === 0) {
-//       return res.status(400).json({ message: "No available venues" });
-//     }
-
-//     const venue = availableVenues[0];
-
-//     // Find the best available time slot
-//     const presentationsOnDate = await Presentation.find({ date });
-//     let suggestedTime = findBestTimeSlot(presentationsOnDate, duration);
-
-//     if (!suggestedTime) {
-//       return res.status(400).json({ message: "No suitable time slots available" });
-//     }
-
-//     res.status(200).json({
-//       examiners: availableExaminers,
-//       venue,
-//       department,
-//       timeRange: suggestedTime,
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error });
-//   }
-// };
-
 
 export const smartSuggestSlot = async (req, res) => {
   try {
@@ -270,7 +281,7 @@ export const smartSuggestSlot = async (req, res) => {
       return res.status(400).json({ message: "No venues found" });
     }
 
-    // Define possible time slots
+    // Define possible time slots for the day
     const allTimeSlots = [
       { startTime: "08:00", endTime: "09:00" },
       { startTime: "09:00", endTime: "10:00" },
@@ -283,13 +294,31 @@ export const smartSuggestSlot = async (req, res) => {
       { startTime: "16:00", endTime: "17:00" }
     ];
 
+    // Helper function to check if a time slot can accommodate the given duration
+    const getAvailableTimeSlot = (startTime, duration) => {
+      const [hours, minutes] = startTime.split(":").map(num => parseInt(num, 10));
+      const startDate = new Date(0, 0, 0, hours, minutes);
+      const endDate = new Date(startDate.getTime() + duration * 60000); // Adding duration (ms)
+
+      const endHours = endDate.getHours();
+      const endMinutes = endDate.getMinutes();
+
+      return {
+        startTime: `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`,
+        endTime: `${endHours.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`
+      };
+    };
+
     for (let venue of allVenues) {
       for (let slot of allTimeSlots) {
-        // Check venue availability for this time slot
+        // Adjust the slot to match the required duration
+        const adjustedSlot = getAvailableTimeSlot(slot.startTime, duration);
+
+        // Check venue availability for the new time slot
         const isVenueAvailable = await isTimeSlotAvailable(
           date,
-          slot.startTime,
-          slot.endTime,
+          adjustedSlot.startTime,
+          adjustedSlot.endTime,
           [],
           venue._id,
           studentIds
@@ -302,8 +331,8 @@ export const smartSuggestSlot = async (req, res) => {
         for (let examiner of departmentExaminers) {
           const isExaminerAvailable = await isTimeSlotAvailable(
             date,
-            slot.startTime,
-            slot.endTime,
+            adjustedSlot.startTime,
+            adjustedSlot.endTime,
             [examiner._id],
             venue._id,
             studentIds
@@ -322,7 +351,7 @@ export const smartSuggestSlot = async (req, res) => {
             examiners: availableExaminers.slice(0, numExaminers),
             venue,
             department,
-            timeRange: slot,
+            timeRange: adjustedSlot,
           });
         }
       }
@@ -335,72 +364,74 @@ export const smartSuggestSlot = async (req, res) => {
 };
 
 
-
-
-const findBestTimeSlot = (presentations, duration) => {
-  let availableSlots = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"];
-  
-  presentations.forEach(presentation => {
-    let index = availableSlots.indexOf(presentation.timeRange.startTime);
-    if (index !== -1) availableSlots.splice(index, 1);
-  });
-
-  return availableSlots.length > 0 ? { startTime: availableSlots[0], endTime: calculateEndTime(availableSlots[0], duration) } : null;
-};
-
-const calculateEndTime = (startTime, duration) => {
-  let [hours, minutes] = startTime.split(":").map(Number);
-  hours += Math.floor(duration / 60);
-  minutes += duration % 60;
-  if (minutes >= 60) {
-    hours += 1;
-    minutes -= 60;
-  }
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-};
-
 export const smartSuggestSlotForReschedule = async (req, res) => {
   try {
     const { presentationId } = req.body;
 
     // Find the presentation
-    const presentation = await Presentation.findById(presentationId).populate("students").populate("examiners");
+    const presentation = await Presentation.findById(presentationId)
+      .populate("students")
+      .populate("examiners");
+
     if (!presentation) {
       return res.status(404).json({ message: "Presentation not found" });
     }
 
     const department = presentation.department;
     const duration = presentation.duration;
-    const date = new Date(); // Start searching from today
+    const studentIds = presentation.students.map((s) => s._id);
+    const examinerIds = presentation.examiners.map((e) => e._id);
+    const date = new Date().toISOString().split("T")[0]; // Get today's date
 
-    // Get available venue
-    const availableVenues = await Venue.find({
-      _id: { $nin: await Presentation.distinct("venue", { date }) },
-    }).limit(1);
+    // Get all venues (without removing those that have a presentation)
+    const allVenues = await Venue.find();
 
-    if (availableVenues.length === 0) {
-      return res.status(400).json({ message: "No available venues" });
+    if (allVenues.length === 0) {
+      return res.status(400).json({ message: "No venues found" });
     }
 
-    const venue = availableVenues[0];
+    // Define possible time slots
+    const allTimeSlots = [
+      { startTime: "08:00", endTime: "09:00" },
+      { startTime: "09:00", endTime: "10:00" },
+      { startTime: "10:00", endTime: "11:00" },
+      { startTime: "11:00", endTime: "12:00" },
+      { startTime: "12:00", endTime: "13:00" },
+      { startTime: "13:00", endTime: "14:00" },
+      { startTime: "14:00", endTime: "15:00" },
+      { startTime: "15:00", endTime: "16:00" },
+      { startTime: "16:00", endTime: "17:00" },
+    ];
 
-    // Find the best available time slot
-    const presentationsOnDate = await Presentation.find({ date });
-    let suggestedTime = findBestTimeSlot(presentationsOnDate, duration);
+    for (let venue of allVenues) {
+      for (let slot of allTimeSlots) {
+        // Check venue, examiner, and student availability for this time slot
+        const isAvailable = await isTimeSlotAvailable(
+          date,
+          slot.startTime,
+          slot.endTime,
+          examinerIds,
+          venue._id,
+          studentIds
+        );
 
-    if (!suggestedTime) {
-      return res.status(400).json({ message: "No suitable time slots available" });
+        if (isAvailable) {
+          return res.status(200).json({
+            department,
+            venue,
+            timeRange: slot,
+          });
+        }
+      }
     }
 
-    res.status(200).json({
-      department,
-      venue,
-      timeRange: suggestedTime,
-    });
+    return res.status(400).json({ message: "No suitable time slots available" });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Server error", error });
   }
 };
+
 
 export const requestReschedule = async (req, res) => {
   try {
@@ -506,3 +537,99 @@ export const deleteRescheduleRequest = async (req, res) => {
     res.status(500).json({ message: "Server error", error });
   }
 };
+
+
+export const getPresentationsForExaminer = async (req, res) => {
+  try {
+    const examinerId = req.user.id; // Use the authenticated user's ID from the JWT token
+    
+    // Convert examinerId to ObjectId (if needed)
+    const examinerObjectId = new mongoose.Types.ObjectId(examinerId);
+    console.log("Fetching presentations for examiner with ObjectId:", examinerObjectId);
+
+    // Fetch presentations for the examiner based on the examiner ObjectId
+    const presentations = await Presentation.find({
+      'examiners': examinerObjectId, // Querying by ObjectId reference
+    });
+
+    console.log("Found presentations for examiner:", presentations);
+
+    if (presentations.length === 0) {
+      return res.status(404).json({ message: "No presentations found for this examiner" });
+    }
+
+    res.json(presentations);
+  } catch (error) {
+    console.error("Error fetching presentations for examiner:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+
+
+// Controller to get presentations for students
+export const getPresentationsForStudent = async (req, res) => {
+  try {
+    const { studentId } = req.params; // Get the student's ID from params
+    
+    // Convert studentId to ObjectId (if needed)
+    const studentObjectId = new mongoose.Types.ObjectId(studentId);
+
+    console.log("Fetching presentations for student with ObjectId:", studentObjectId);
+
+    // Fetch presentations for the student based on the student ObjectId
+    const presentations = await Presentation.find({
+      'students': studentObjectId, // Querying by ObjectId reference
+    });
+
+    // Log presentations fetched
+    console.log("Found presentations for student:", presentations);
+
+    if (presentations.length === 0) {
+      return res.status(404).json({ message: "No presentations found for this student" });
+    }
+
+    res.json(presentations);
+  } catch (error) {
+    console.error("Error fetching presentations for student:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getUserPresentations = async (req, res, next) => {
+  try {
+    const userId = req.params.userId;
+    console.log("Fetching presentations for User ID:", userId);
+
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
+    // Fetch presentations and populate student and examiner data
+    const userPresentations = await Presentation.find()
+      .populate("students", "student_id")
+      .populate("examiners", "examiner_id")
+      .populate("venue", "venue_id");
+
+    // Filter presentations manually
+    const filteredPresentations = userPresentations.filter(presentation =>
+      presentation.students.some(student => student.student_id === userId) ||
+      presentation.examiners.some(examiner => examiner.examiner_id === userId)
+    );
+
+    console.log("Filtered Presentations:", filteredPresentations);
+
+    if (filteredPresentations.length === 0) {
+      return res.status(404).json({ message: "No presentations found for this user" });
+    }
+
+    return res.status(200).json(filteredPresentations);
+  } catch (error) {
+    console.error("Error fetching user presentations:", error);
+    return next(error);
+  }
+};
+
+
+

@@ -1,20 +1,25 @@
 import { useSelector } from 'react-redux';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 
-export default function PrivateRoute({ adminOnly = false }) {
+export default function PrivateRoute({ adminOnly = false, studentOnly = false, examinerOnly = false }) {
   const { currentUser } = useSelector(state => state.user);
   const location = useLocation();
 
-  // Protect against non-logged-in users
   if (!currentUser) {
-    return <Navigate to="/sign-in" state={{ from: location }} />;
+    return <Navigate to="/sign-in" state={{ from: location }} replace />;
   }
 
-  // Handle admin-only route protection
   if (adminOnly && !currentUser.isAdmin) {
-    return <Navigate to="/profile" state={{ from: location }} />;
+    return <Navigate to="/profile" state={{ from: location }} replace />;
   }
 
-  // If the user is logged in and has the correct role, render the requested route
+  if (studentOnly && currentUser.role !== 'student') {
+    return <Navigate to="/student-profile" state={{ from: location }} replace />;
+  }
+
+  if (examinerOnly && currentUser.role !== 'examiner') {
+    return <Navigate to="/profile" state={{ from: location }} replace />;
+  }
+
   return <Outlet />;
 }

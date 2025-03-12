@@ -6,7 +6,7 @@ import { updateUserStart, updateUserSuccess, updateUserFailure, deleteUserStart,
 import Sidebar from '../components/Sidebar';
 import axios from 'axios'; // Ensure you have axios imported
 
-export default function Profile() {
+export default function StudentProfile() {
   const dispatch = useDispatch();
   const fileRef = useRef(null);
   const [image, setImage] = useState(undefined);
@@ -136,7 +136,7 @@ export default function Profile() {
       <Sidebar />
 
       <div className="flex-1 p-8 ml-64">
-        <h1 className='text-3xl font-semibold text-center mb-7'>Profile</h1>
+        <h1 className='text-3xl font-semibold text-center mb-7'>Student Profile</h1>
         <form onSubmit={handleSubmit} className='flex flex-col gap-4 max-w-lg mx-auto'>
           <input
             type='file'

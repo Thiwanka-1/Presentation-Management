@@ -44,7 +44,7 @@ export default function Sidebar() {
         {!currentUser.isAdmin && (
           <>
             <li className="mb-4">
-              <Link to="/slots" className="hover:text-gray-300">
+              <Link to="/ex-pres-view" className="hover:text-gray-300">
                 Request Appointment
               </Link>
             </li>

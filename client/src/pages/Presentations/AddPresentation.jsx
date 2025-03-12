@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import Modal from "react-modal";
 import { CheckCircleIcon } from "lucide-react"; // Import the icon
+import AvailabilityCheckerModal from "./AvailabilityCheckerModal";
 
 const AddPresentation = () => {
   const departments = ["IT", "IM", "SE", "ISC"];
-  
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [students, setStudents] = useState([]);
   const [examiners, setExaminers] = useState([]);
   const [venues, setVenues] = useState([]);
@@ -200,6 +201,7 @@ const AddPresentation = () => {
           <input
             type="number"
             name="numOfExaminers"
+            placeholder="Enter number of examiners"
             value={formData.numOfExaminers}
             onChange={handleInputChange}
             className="w-full p-2 border rounded"
@@ -226,6 +228,7 @@ const AddPresentation = () => {
           <input
             type="number"
             name="duration"
+            placeholder="Enter duration"
             value={formData.duration}
             onChange={handleInputChange}
             className="w-full p-2 border rounded"
@@ -340,14 +343,30 @@ const AddPresentation = () => {
 </div>
 
 
-        <div className="mt-4 text-center">
-          <button
-            type="submit"
-            className="w-full p-3 bg-blue-600 text-white rounded font-bold hover:bg-blue-700"
-          >
-            Add Presentation
-          </button>
-        </div>
+<div className="mt-4 flex justify-between items-center">
+  {/* Check Availability Button */}
+  <button
+    type="button"
+    className="p-3 bg-gray-500 text-white rounded font-bold hover:bg-gray-600 w-1/2 mr-2"
+    onClick={() => setIsModalOpen(true)} // Opens the modal
+  >
+    Check Availability
+  </button>
+
+  {/* Add Presentation Button */}
+  <button
+    type="submit"
+    className="p-3 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 w-1/2 ml-2"
+  >
+    Add Presentation
+  </button>
+</div>
+
+<AvailabilityCheckerModal 
+  isOpen={isModalOpen} 
+  onClose={() => setIsModalOpen(false)} 
+/>
+
       </form>
 
       {/* Confirmation Popup */}

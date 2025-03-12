@@ -64,13 +64,43 @@ export const getStudentById = async (req, res, next) => {
 export const updateStudent = async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedStudent = await Student.findByIdAndUpdate(id, req.body, { new: true });
+    const { name, email, password } = req.body;
+
+    // Prepare an object to store fields to be updated
+    const updatedFields = {};
+    if (name) updatedFields.name = name;
+    if (email) updatedFields.email = email;
+
+    // Handle password separately by hashing it
+    if (password) {
+      const hashedPassword = await bcryptjs.hash(password, 10);
+      updatedFields.password = hashedPassword;
+    }
+
+    // Update student details
+    const updatedStudent = await Student.findByIdAndUpdate(
+      id,
+      updatedFields,
+      { new: true }
+    );
 
     if (!updatedStudent) {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    res.status(200).json(updatedStudent);
+    // Update the corresponding user profile
+    const updatedUserFields = {};
+    if (name) updatedUserFields.username = name;
+    if (email) updatedUserFields.email = email;
+    if (password) updatedUserFields.password = updatedFields.password;
+
+    await User.findOneAndUpdate(
+      { user_id: updatedStudent.student_id },
+      updatedUserFields,
+      { new: true }
+    );
+
+    res.status(200).json({ message: "Student and user profile updated successfully", updatedStudent });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }

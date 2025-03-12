@@ -59,7 +59,9 @@ export default function SignIn() {
 
       if (data.role === 'admin') {
         navigate('/admin-profile');
-      } else {
+      }else if (data.role === 'student') {
+        navigate('/student-profile');
+      }else {
         navigate('/profile');
       }
     } catch (error) {

@@ -64,17 +64,45 @@ export const getExaminerById = async (req, res, next) => {
 export const updateExaminer = async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedExaminer = await Examiner.findByIdAndUpdate(id, req.body, { new: true });
+    const { name, email, password } = req.body;
 
-    if (!updatedExaminer) {
+    // Find examiner to update
+    const examiner = await Examiner.findById(id);
+    if (!examiner) {
       return res.status(404).json({ message: "Examiner not found" });
     }
 
-    res.status(200).json(updatedExaminer);
+    // Update examiner details
+    examiner.name = name || examiner.name;
+    examiner.email = email || examiner.email;
+
+    // If a new password provided, hash it
+    if (password) {
+      const hashedPassword = await bcryptjs.hash(password, 10);
+      examiner.password = hashedPassword;
+    }
+
+    await examiner.save();
+
+    // Update the corresponding user details
+    const user = await User.findOne({ user_id: examiner.examiner_id });
+    if (user) {
+      user.username = name || user.username;
+      user.email = email || user.email;
+
+      if (password) {
+        user.password = examiner.password;
+      }
+
+      await user.save();
+    }
+
+    res.status(200).json({ message: "Examiner and user profile updated successfully", examiner });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }
 };
+
 
 export const deleteExaminer = async (req, res) => {
   try {
