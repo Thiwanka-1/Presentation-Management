@@ -12,6 +12,9 @@ import studentRoutes from "./routes/student.routes.js";
 import examinerRoutes from "./routes/examiner.routes.js";
 import venueRoutes from "./routes/venue.routes.js";
 import presentationRoutes from "./routes/presentation.routes.js";
+import studentGroupRoutes from "./routes/groups.routes.js";
+import modules from "./routes/module.routes.js";
+import timetableRoutes from "./routes/timetable.routes.js";
 
 // Load environment variables
 dotenv.config();
@@ -51,6 +54,9 @@ app.use("/api/students", studentRoutes);
 app.use("/api/examiners", examinerRoutes);
 app.use("/api/venues", venueRoutes);
 app.use("/api/presentations", presentationRoutes);
+app.use("/api/groups", studentGroupRoutes);
+app.use("/api/modules", modules);
+app.use("/api/timetables", timetableRoutes);
 
 const __dirname = path.resolve();
 
