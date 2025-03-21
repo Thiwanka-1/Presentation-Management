@@ -103,7 +103,7 @@ export default function AdminProfile() {
       if (data.isAdmin) {
         navigate('/admin-profile');
       } else {
-        navigate('/profile');
+        navigate('/student-profile');
       }
     } catch (error) {
       dispatch(updateUserFailure(error));

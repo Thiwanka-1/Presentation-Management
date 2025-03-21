@@ -43,7 +43,7 @@ export const addModule = async (req, res) => {
     }
   };
   
-  // ✅ Get All Modules (Includes `module_name` and `examiner_id`)
+  //  Get All Modules (Includes `module_name` and `examiner_id`)
   export const viewAllModules = async (req, res) => {
     try {
       const modules = await Module.find().populate("lecturer_in_charge", "examiner_id name");
@@ -54,7 +54,7 @@ export const addModule = async (req, res) => {
     }
   };
   
-  // ✅ Update Module (Supports Updating `module_name` & Lecturer using `examiner_id`)
+  //  Update Module (Supports Updating `module_name` & Lecturer using `examiner_id`)
   export const updateModule = async (req, res) => {
     try {
       const { id } = req.params;
@@ -82,7 +82,7 @@ export const addModule = async (req, res) => {
     }
   };
   
-  // ✅ Delete Module
+  //  Delete Module
   export const deleteModule = async (req, res) => {
     try {
       const { id } = req.params;

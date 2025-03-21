@@ -165,7 +165,16 @@ export default function ExaminerProfile() {
               ''
             )}
           </p>
-          
+          Examiner Id:
+          <input
+              defaultValue={currentUser.user_id} 
+              type="text"
+              id="studentId"
+              placeholder="Student ID"
+              className="bg-slate-100 rounded-lg p-3"
+              readOnly
+            />
+          Username:
           <input
             defaultValue={currentUser.username}
             type='text'
@@ -175,7 +184,7 @@ export default function ExaminerProfile() {
             onChange={handleChange}
           />
           {errors.username && <p className="text-red-500">{errors.username}</p>}
-
+          Email:
           <input
             defaultValue={currentUser.email}
             type='email'
@@ -185,7 +194,7 @@ export default function ExaminerProfile() {
             onChange={handleChange}
           />
           {errors.email && <p className="text-red-500">{errors.email}</p>}
-
+            Password:
           <div className='relative'>
             <input
               type={showPassword ? 'text' : 'password'}

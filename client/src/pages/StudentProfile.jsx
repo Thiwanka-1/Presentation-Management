@@ -165,7 +165,17 @@ export default function StudentProfile() {
               ''
             )}
           </p>
-          
+          {/* Student ID (Read-only) */}
+          Student ID :
+            <input
+              defaultValue={currentUser.user_id} 
+              type="text"
+              id="studentId"
+              placeholder="Student ID"
+              className="bg-slate-100 rounded-lg p-3"
+              readOnly
+            />
+            Username :
           <input
             defaultValue={currentUser.username}
             type='text'
@@ -175,7 +185,7 @@ export default function StudentProfile() {
             onChange={handleChange}
           />
           {errors.username && <p className="text-red-500">{errors.username}</p>}
-
+          Email:
           <input
             defaultValue={currentUser.email}
             type='email'
@@ -185,7 +195,7 @@ export default function StudentProfile() {
             onChange={handleChange}
           />
           {errors.email && <p className="text-red-500">{errors.email}</p>}
-
+          Password:
           <div className='relative'>
             <input
               type={showPassword ? 'text' : 'password'}

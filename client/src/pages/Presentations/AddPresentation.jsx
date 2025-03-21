@@ -67,11 +67,10 @@ const AddPresentation = () => {
   };
 
   const handleSmartSuggest = async () => {
-    const { students, numOfExaminers, duration, date } = formData;
-  
+    const { students, numOfExaminers, duration } = formData;
     const studentIds = students.filter((student) => student);
     
-    if (!studentIds.length || !numOfExaminers || !duration || !date) {
+    if (!studentIds.length || !numOfExaminers || !duration) {
       alert("Please fill out all fields before using Smart Suggest.");
       return;
     }
@@ -79,18 +78,18 @@ const AddPresentation = () => {
     try {
       const response = await axios.post("/api/presentations/smart-suggest-slot", {
         studentIds,
-        date,
         numExaminers: numOfExaminers,
         duration,
       });
+
+      const { examiners, venue, timeRange, date } = response.data;
   
-      const { examiners, venue, timeRange } = response.data;
-  
-      // Set venue and examiner fields
+      // Update form data with suggested values
       setFormData({
         ...formData,
-        venue: venue._id, // Auto-fill venue
-        examiners: examiners.slice(0, numOfExaminers).map(examiner => examiner._id), // Auto-fill examiner IDs
+        venue: venue._id,
+        date,
+        examiners: examiners.map((ex) => ex._id),
         timeRange,
       });
     } catch (error) {
@@ -98,6 +97,7 @@ const AddPresentation = () => {
       alert("Failed to get the smart suggestion. Please try again.");
     }
   };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -210,7 +210,7 @@ const AddPresentation = () => {
         </div>
 
         {/* Date */}
-        <div>
+        {/* <div>
           <label>Date</label>
           <input
             type="date"
@@ -220,7 +220,7 @@ const AddPresentation = () => {
             className="w-full p-2 border rounded"
             required
           />
-        </div>
+        </div> */}
 
         {/* Duration */}
         <div>
@@ -295,7 +295,16 @@ const AddPresentation = () => {
     </button>
   )}
 </div>
-
+<div>
+          <label>Suggested Date</label>
+          <input
+            name="date"
+            type="date"
+            value={formData.date}
+            onChange={handleInputChange}
+            className="w-full p-2 border rounded"
+          />
+        </div>
         {/* Venue */}
         <div>
           <label>Venue</label>
@@ -370,7 +379,7 @@ const AddPresentation = () => {
       </form>
 
       {/* Confirmation Popup */}
-      <Modal
+<Modal
   isOpen={confirmationPopup}
   onRequestClose={() => setConfirmationPopup(false)}
   contentLabel="Confirmation"
@@ -419,6 +428,13 @@ const AddPresentation = () => {
       </div>
     </div>
 
+    {/* Lecture Rescheduling Confirmation */}
+    <div className="mt-4 p-3 bg-yellow-100 text-yellow-800 rounded">
+      <h3 className="text-md font-semibold mb-2">Lecture Rescheduling</h3>
+      <p>All lectures for the selected examiners on <strong>{formData.date}</strong> have been rescheduled.</p>
+      <p>Students will receive notifications about the updated lecture schedule.</p>
+    </div>
+
     {/* Confirm Button */}
     <button
       onClick={() => {
@@ -431,6 +447,7 @@ const AddPresentation = () => {
     </button>
   </div>
 </Modal>
+
 
     </div>
   );

@@ -38,36 +38,40 @@ export default function SignIn() {
       setErrors(validationErrors);
       return;
     }
-
+  
     try {
       dispatch(signInStart());
       const res = await axios.post('/api/auth/signin', formData, {
         withCredentials: true,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-         // Make sure cookies (JWT) are sent
+        headers: { 'Content-Type': 'application/json' }
       });
-      const data = await res.data;
-
+      const data = res.data;
+  
       if (data.success === false) {
         dispatch(signInFailure(data));
         return;
       }
-
+    
+      //  Ensure role is used correctly
+      const userRole = data.role || "user";
       dispatch(signInSuccess(data));
-
-      if (data.role === 'admin') {
+  
+      if (userRole === 'admin') {
         navigate('/admin-profile');
-      }else if (data.role === 'student') {
-        navigate('/student-profile');
-      }else {
+      } else if (userRole === 'examiner') {
         navigate('/profile');
+      } else if (userRole === 'student') {
+        navigate('/student-profile');
+      } else {
+        console.error("Unknown role:", userRole);
       }
     } catch (error) {
       dispatch(signInFailure(error));
+      console.error("Sign In Error:", error);
     }
   };
+  
+  
 
   return (
     <div className='p-3 max-w-lg mx-auto'>

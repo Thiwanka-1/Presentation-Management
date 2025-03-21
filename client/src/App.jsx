@@ -21,6 +21,21 @@ import StudentViewPresentations from './pages/Students/StudentViewPresentations'
 import AdminViewExaminers from './pages/Examiners/AdminViewExaminers';
 import AdminViewVenues from './pages/Venues/AdminViewVenues';
 import Modal from "react-modal";
+import AddTimetable from './pages/timetable/AddTimetable';
+import ViewTimetables from './pages/timetable/ViewTimetables';
+import UpdateTimetable from './pages/timetable/UpdateTimetable';
+import StudentTimetable from './pages/Students/StudentTimetable';
+import ExaminerTimetable from './pages/Examiners/ExaminerTimetable';
+import AddStudentGroup from './pages/Groups/AddStudentGroup';
+import ViewStudentGroups from './pages/Groups/ViewStudentGroups';
+import UpdateStudentGroup from './pages/Groups/UpdateStudentGroup';
+import AddModule from './pages/Modules/AddModule';
+import ViewModules from './pages/Modules/ViewModules';
+import UpdateModule from './pages/Modules/UpdateModule';
+import UpdatePresentation from './pages/Presentations/UpdatePresentation';
+import UpdateVenue from './pages/Venues/UpdateVenue';
+import ResceduledLectures from './pages/Examiners/ResceduledLectures';
+
 
 Modal.setAppElement("#root");  // Fixes the warning
 
@@ -32,40 +47,59 @@ export default function App() {
   return <BrowserRouter>
   <Header />
     <Routes>
-      <Route path = "/" element = {<Home />} />
-      <Route path = "/sign-in" element = {<SignIn />} />
-      <Route path = "/sign-up" element = {<SignUp />} />
+      <Route path = "/" element = {<Home />} /> {/* done */}
+      <Route path = "/sign-in" element = {<SignIn />} /> {/* done */}
+      <Route path = "/sign-up" element = {<SignUp />} /> {/* done */}
 
       <Route element={<PrivateRoute />}>
-        <Route path = "/profile" element = {<ExaminerProfile />} />
 
-        <Route path = "/add-std" element = {<AddStudent />} />
-        <Route path = "/add-ex" element = {<AddExaminer />} />
-        <Route path = "/add-ven" element = {<AddVenue />} />
-        <Route path = "/add-pres" element = {<AddPresentation />} />
+        <Route path = "/add-std" element = {<AddStudent />} /> {/* done */}
+        <Route path = "/add-ex" element = {<AddExaminer />} /> {/* done */}
+        <Route path = "/add-ven" element = {<AddVenue />} /> {/* done */}
+        <Route path = "/add-pres" element = {<AddPresentation />} /> {/* done */}
         
-        <Route path = "/admin-pres-view" element = {<AdminViewPresentations />} />
-        <Route path = "/admin-std-view" element = {<AdminViewStudents />} />
-        <Route path = "/admin-ex-view" element = {<AdminViewExaminers />} />
-        <Route path = "/admin-ven-view" element = {<AdminViewVenues />} />
+        <Route path = "/admin-pres-view" element = {<AdminViewPresentations />} /> {/* done */}
+        <Route path = "/admin-std-view" element = {<AdminViewStudents />} /> {/* done */}
+        <Route path = "/admin-ex-view" element = {<AdminViewExaminers />} /> {/* done */}
+        <Route path = "/admin-ven-view" element = {<AdminViewVenues />} /> {/* done */}
+
+        <Route path = "/venue-update/:id" element = {<UpdateVenue />} /> {/* done */}
+
+        <Route path = "/presentation-update/:id" element = {<UpdatePresentation />} /> {/* done */}
+
+        <Route path = "/ex-pres-view" element = {<ExaminerViewPresentations />} />  {/* done */}
+        <Route path = "/std-pres-view" element = {<StudentViewPresentations />} />       {/* done */}
+
+        <Route path = "/add-timetable" element = {<AddTimetable />} /> {/* done */}
+        <Route path = "/view-timetables" element = {<ViewTimetables />} /> {/* done */}
+        <Route path = "/update-timetable/:id" element = {<UpdateTimetable />} /> {/* done */}
+        <Route path = "/student-timetable" element = {<StudentTimetable />} /> {/* done */}
+        <Route path = "/examiner-timetable" element = {<ExaminerTimetable />} /> {/* done */}
 
 
-        <Route path = "/ex-pres-view" element = {<ExaminerViewPresentations />} />
-        <Route path = "/std-pres-view" element = {<StudentViewPresentations />} />
+        <Route path = "/add-group" element = {<AddStudentGroup />} />
+        <Route path = "/update-group/:id" element = {<UpdateStudentGroup />} /> {/* done */}
+        <Route path = "/view-groups" element = {<ViewStudentGroups />} />
+
+        <Route path = "/add-module" element = {<AddModule />} />
+        <Route path = "/view-modules" element = {<ViewModules />} />
+        <Route path = "/update-module/:id" element = {<UpdateModule />} /> {/* done */}
+
+        <Route path = "/rescheduled-lectures" element = {<ResceduledLectures />} /> {/* done */}
 
 
       </Route>
 
       <Route element={<PrivateRoute adminOnly={true} />}>
-        <Route path="/manage-users" element={<ManageUsers />} />
-        <Route path='/admin-profile' element={<AdminProfile />} />
+        <Route path="/manage-users" element={<ManageUsers />} /> {/* done */}
+        <Route path='/admin-profile' element={<AdminProfile />} /> {/* done */}
 
         
 
       </Route>
 
       <Route element={<PrivateRoute studentOnly={true} />}>
-        <Route path = "/student-profile" element = {<StudentProfile />} />
+        <Route path = "/student-profile" element = {<StudentProfile />} /> {/* done */}
 
 
         
@@ -74,6 +108,7 @@ export default function App() {
 
       <Route element={<PrivateRoute examinerOnly={true} />}>
         
+        <Route path = "/profile" element = {<ExaminerProfile />} /> {/* done */}
 
         
 

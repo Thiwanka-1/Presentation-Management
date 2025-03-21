@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import logo from '../components/logo1.png'; // Import your logo
+import logo from '../components/logo2.png'; // Import your logo
 import axios from 'axios'; // Ensure you have axios imported
 
 export default function ManageUsers() {

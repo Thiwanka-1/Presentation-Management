@@ -15,6 +15,7 @@ import presentationRoutes from "./routes/presentation.routes.js";
 import studentGroupRoutes from "./routes/groups.routes.js";
 import modules from "./routes/module.routes.js";
 import timetableRoutes from "./routes/timetable.routes.js";
+import resceduleTImeTable from "./routes/lecRescedule.route.js";
 
 // Load environment variables
 dotenv.config();
@@ -57,6 +58,7 @@ app.use("/api/presentations", presentationRoutes);
 app.use("/api/groups", studentGroupRoutes);
 app.use("/api/modules", modules);
 app.use("/api/timetables", timetableRoutes);
+app.use("/api/reschedule", resceduleTImeTable);
 
 const __dirname = path.resolve();
 

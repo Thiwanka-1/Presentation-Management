@@ -126,12 +126,7 @@ const AdminViewVenues = () => {
                   <td className="px-6 py-4 text-sm">{venue.capacity}</td>
                   <td className="px-6 py-4 text-sm">{venue.location}</td>
                   <td className="px-3 py-4 text-sm flex space-x-2">
-                    <button
-                      onClick={() => navigate(`/venue-detail/${venue._id}`)}
-                      className="bg-green-500 text-white py-1 px-3 rounded-lg hover:bg-green-600 transition-colors"
-                    >
-                      Details
-                    </button>
+                   
                     <button
                       onClick={() => navigate(`/venue-update/${venue._id}`)}
                       className="bg-blue-500 text-white py-1 px-3 rounded-lg hover:bg-blue-600 transition-colors"

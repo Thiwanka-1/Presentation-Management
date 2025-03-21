@@ -11,37 +11,49 @@ const generateGroupId = async () => {
 
 // Add a new student group
 export const addStudentGroup = async (req, res) => {
-    try {
-      const { department, students } = req.body;
-  
-      if (!department || !students || students.length === 0) {
-        return res.status(400).json({ message: "Department and students are required" });
-      }
-  
-      // Convert student_id to ObjectId
-      const studentDocs = await Student.find({ student_id: { $in: students } });
-  
-      if (studentDocs.length !== students.length) {
-        return res.status(400).json({ message: "One or more student IDs are invalid" });
-      }
-  
-      // Generate new group ID
-      const group_id = await generateGroupId();
-  
-      // Create new group
-      const newGroup = new StudentGroup({
-        group_id,
-        department,
-        students: studentDocs.map(student => student._id), // Store ObjectIds
-      });
-  
-      await newGroup.save();
-  
-      res.status(201).json({ message: "Student group created successfully", group_id });
-    } catch (error) {
-      res.status(500).json({ message: "Server error", error });
+  try {
+    const { department, students } = req.body;
+
+    if (!department || !students || students.length === 0) {
+      return res.status(400).json({ message: "Department and students are required" });
     }
-  };
+
+    // Convert student_id to ObjectId
+    const studentDocs = await Student.find({ student_id: { $in: students } });
+
+    if (studentDocs.length !== students.length) {
+      return res.status(400).json({ message: "One or more student IDs are invalid" });
+    }
+
+    // Check if any of the students are already assigned to a group
+    const existingGroup = await StudentGroup.findOne({
+      students: { $in: studentDocs.map(student => student._id) }
+    });
+
+    if (existingGroup) {
+      return res.status(400).json({
+        message: `One or more students are already assigned to another group (Group ID: ${existingGroup.group_id}).`
+      });
+    }
+
+    // Generate new group ID
+    const group_id = await generateGroupId();
+
+    // Create new group
+    const newGroup = new StudentGroup({
+      group_id,
+      department,
+      students: studentDocs.map(student => student._id), // Store ObjectIds
+    });
+
+    await newGroup.save();
+
+    res.status(201).json({ message: "Student group created successfully", group_id });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
   
   //  Get All Student Groups
   export const getAllStudentGroups = async (req, res) => {
@@ -86,8 +98,7 @@ export const addStudentGroup = async (req, res) => {
         return res.status(400).json({ message: "Invalid Group ID" });
       }
   
-  
-      // Find group
+      // Find the group
       const group = await StudentGroup.findById(id);
       if (!group) {
         console.log("No group found with ID:", id);
@@ -101,11 +112,24 @@ export const addStudentGroup = async (req, res) => {
         return res.status(400).json({ message: "One or more student IDs are invalid" });
       }
   
-      // Update group
+      // Check if any student is already assigned to another group (excluding the current group)
+      const existingGroup = await StudentGroup.findOne({
+        _id: { $ne: id }, // Exclude the current group
+        students: { $in: studentDocs.map(student => student._id) }
+      });
+  
+      if (existingGroup) {
+        return res.status(400).json({
+          message: `One or more students are already assigned to another group (Group ID: ${existingGroup.group_id}).`
+        });
+      }
+  
+      // Update the group
       group.department = department || group.department;
       group.students = studentDocs.map(student => student._id);
   
       await group.save();
+  
       res.status(200).json({ message: "Student group updated successfully", updatedGroup: group });
     } catch (error) {
       console.error("Error updating student group:", error);

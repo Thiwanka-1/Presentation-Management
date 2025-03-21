@@ -10,15 +10,15 @@ export default function PrivateRoute({ adminOnly = false, studentOnly = false, e
   }
 
   if (adminOnly && !currentUser.isAdmin) {
-    return <Navigate to="/profile" state={{ from: location }} replace />;
+    return <Navigate to="/" state={{ from: location }} replace />;
   }
 
   if (studentOnly && currentUser.role !== 'student') {
-    return <Navigate to="/student-profile" state={{ from: location }} replace />;
+    return <Navigate to="/" state={{ from: location }} replace />;
   }
 
   if (examinerOnly && currentUser.role !== 'examiner') {
-    return <Navigate to="/profile" state={{ from: location }} replace />;
+    return <Navigate to="/" state={{ from: location }} replace />;
   }
 
   return <Outlet />;
