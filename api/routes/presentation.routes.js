@@ -14,7 +14,9 @@ import {
     checkAvailability,
     getPresentationsForExaminer,
     getPresentationsForStudent,
-    getUserPresentations
+    getUserPresentations,
+    getRescheduleRequestsForExaminer,
+    deleteOldRejectedRequests
 
 } from "../controllers/presentation.controller.js";
 import { verifyToken } from '../utils/verifyUser.js';
@@ -37,8 +39,11 @@ router.get("/get-requests", getAllRequests);
 
 router.post("/check-availability", checkAvailability);
 
-router.get("/user/:userId", verifyToken, getUserPresentations);
+router.get("/ex-req", verifyToken, getRescheduleRequestsForExaminer);
 
+router.delete("/delete-old-req", verifyToken, deleteOldRejectedRequests);
+
+router.get("/user/:userId", verifyToken, getUserPresentations);
 
 router.delete("/delete-req/:id", deleteRescheduleRequest);
 

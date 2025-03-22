@@ -106,7 +106,7 @@ const UpdateStudentGroup = () => {
 
   return (
     <div className="p-6 min-h-screen flex justify-center bg-gray-50">
-      <div className="max-w-lg w-full bg-white p-8 shadow-lg rounded-lg">
+      <div className="max-w-lg w-full bg-white p-8 shadow-lg rounded-lg h-1/2 mt-16">
         <h1 className="text-3xl font-bold text-center mb-6">Update Student Group</h1>
 
         {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
@@ -173,7 +173,7 @@ const UpdateStudentGroup = () => {
               <button
                 type="button"
                 onClick={handleAddStudent}
-                className="flex items-center bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md mt-2"
+                className="flex items-center bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md mt-6"
               >
                 <PlusCircleIcon className="h-5 w-5 mr-2" />
                 Add Another Student
@@ -184,7 +184,7 @@ const UpdateStudentGroup = () => {
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white p-2 rounded-md font-semibold hover:bg-blue-700 transition duration-300"
+            className="w-full bg-blue-600 text-white p-2 rounded-md font-semibold hover:bg-blue-700 transition duration-300 mb-6 mt-6"
           >
             Update Group
           </button>

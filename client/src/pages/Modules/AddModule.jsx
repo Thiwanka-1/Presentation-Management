@@ -74,7 +74,7 @@ const AddModule = () => {
 
   return (
     <div className="p-6 min-h-screen flex justify-center bg-gray-50">
-      <div className="max-w-lg w-full bg-white p-8 shadow-lg rounded-lg">
+      <div className="max-w-lg w-full bg-white p-8 shadow-lg rounded-lg h-5/6 mt-20">
         <h1 className="text-3xl font-bold text-center mb-6">Add Module</h1>
 
         {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
@@ -156,7 +156,7 @@ const AddModule = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white p-2 rounded-md font-semibold hover:bg-blue-700 transition duration-300"
+            className="w-full bg-blue-600 text-white p-2 rounded-md font-semibold hover:bg-blue-700 transition duration-300 mb-16 mt-5"
           >
             {loading ? "Adding..." : "Add Module"}
           </button>

@@ -174,7 +174,7 @@ export default function AdminProfile() {
               ''
             )}
           </p>
-          
+          Username:
           <input
             defaultValue={currentUser.username}
             type='text'
@@ -184,7 +184,7 @@ export default function AdminProfile() {
             onChange={handleChange}
           />
           {errors.username && <p className="text-red-500">{errors.username}</p>}
-
+          Email:
           <input
             defaultValue={currentUser.email}
             type='email'
@@ -194,7 +194,7 @@ export default function AdminProfile() {
             onChange={handleChange}
           />
           {errors.email && <p className="text-red-500">{errors.email}</p>}
-
+            Password:
           <div className='relative'>
             <input
               type={showPassword ? 'text' : 'password'}

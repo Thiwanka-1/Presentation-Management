@@ -45,9 +45,9 @@ export default function Header() {
             <>
               {currentUser.role === 'admin' ? (
                 <>
-                  <li><Link to="/appointments/new">Add Appointments</Link></li>
-                  <li><Link to="/view">View Appointments</Link></li>
-                  <li><Link to="/req">View Requests</Link></li>
+                  <li><Link to="/">Home</Link></li>
+                  <li><Link to="/admin-pres-view">View Presentations</Link></li>
+                  <li><Link to="/reschedule-req">View Requests</Link></li>
                 </>
               ) : (
                 <>

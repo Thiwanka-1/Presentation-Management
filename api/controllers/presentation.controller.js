@@ -6,6 +6,7 @@ import RescheduleRequest from "../models/reschedule.model.js";
 import mongoose from "mongoose";
 import Timetable from "../models/timetable.model.js";
 import { rescheduleLectures } from "./lecReschedule.controller.js";
+import { sendEmail } from "../utils/emailSender.js";
 
 // Function to check if time slot is available
 const isTimeSlotAvailable = async (date, startTime, endTime, examiners, venue, students) => {
@@ -45,23 +46,50 @@ const isTimeSlotAvailable = async (date, startTime, endTime, examiners, venue, s
   return !overlappingExaminer && !overlappingVenue && !overlappingStudent;
 };
 
-// Add a new presentation
+
 export const addPresentation = async (req, res, next) => {
   try {
-    const { title, students, examiners, venue, department, numOfExaminers, date, duration, timeRange } = req.body;
+    const { 
+      title, 
+      students, 
+      examiners, 
+      venue, 
+      department, 
+      numOfExaminers, 
+      date, 
+      duration, 
+      timeRange 
+    } = req.body;
 
     // Validate required fields
-    if (!title || !students || !examiners || !venue || !department || !numOfExaminers || !date || !duration || !timeRange) {
+    if (
+      !title || 
+      !students || 
+      !examiners || 
+      !venue || 
+      !department || 
+      !numOfExaminers || 
+      !date || 
+      !duration || 
+      !timeRange
+    ) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // Check if the time slot is available
-    const available = await isTimeSlotAvailable(date, timeRange.startTime, timeRange.endTime, examiners, venue, students);
+    // 1️⃣ Check if the time slot is available
+    const available = await isTimeSlotAvailable(
+      date, 
+      timeRange.startTime, 
+      timeRange.endTime, 
+      examiners, 
+      venue, 
+      students
+    );
     if (!available) {
       return res.status(400).json({ message: "Selected time slot is not available" });
     }
 
-    // Create new presentation
+    // 2️⃣ Create new presentation
     const newPresentation = new Presentation({
       title,
       students,
@@ -76,46 +104,101 @@ export const addPresentation = async (req, res, next) => {
 
     await newPresentation.save();
 
-    // **Fix: Fetch actual examiner IDs & Reschedule lectures**
+    
+
+    // 3️⃣ Send Email Notifications to All Examiners & Students
+    try {
+      // Fetch all examiners & students from DB to get their emails
+      const examinerDocs = await Examiner.find({ _id: { $in: examiners } });
+      const studentDocs = await Student.find({ _id: { $in: students } });
+
+      const venueDoc = await Venue.findById(newPresentation.venue);
+      if (!venueDoc) {
+        return res.status(404).json({ message: "Venue not found" });
+      }
+      
+      // 3) Now you have the friendly venue_id
+      const actualVenueId = venueDoc.venue_id;
+      console.log("actualVenueId:", actualVenueId);
+      // Email examiners
+      for (const exDoc of examinerDocs) {
+        if (exDoc.email) {
+          const subject = "New Presentation Scheduled";
+          const text = `Dear Examiner,
+
+A new presentation has been scheduled:
+Title: ${title}
+Department: ${department}
+Date: ${date}
+Time: ${timeRange.startTime} - ${timeRange.endTime}
+Venue: ${actualVenueId}
+
+Please be prepared accordingly.
+`;
+          await sendEmail(exDoc.email, subject, text);
+        }
+      }
+
+      // Email students
+      for (const stDoc of studentDocs) {
+        if (stDoc.email) {
+          const subject = "New Presentation Scheduled";
+          const text = `Dear Student,
+
+A new presentation has been scheduled:
+Title: ${title}
+Department: ${department}
+Date: ${date}
+Time: ${timeRange.startTime} - ${timeRange.endTime}
+Venue: ${actualVenueId}
+
+Please be prepared accordingly.
+`;
+          await sendEmail(stDoc.email, subject, text);
+        }
+      }
+    } catch (emailError) {
+      console.error("Error sending email notifications:", emailError);
+    }
+
+    // 4️⃣ Reschedule other lectures for each examiner on this new date
     for (let examinerObjectId of examiners) {
       try {
-        // **Fetch examiner_id using ObjectId**
+        // Fetch the examiner to get examiner_id (e.g. "EX2025001")
         const examiner = await Examiner.findById(examinerObjectId);
-        if (!examiner) {
-          continue; // Skip this examiner
-        }
+        if (!examiner) continue; // skip if not found
 
-        
-        const fakeReq = { body: { lecturerId: examiner.examiner_id, date } };
+        const fakeReq = { 
+          body: { 
+            lecturerId: examiner.examiner_id, 
+            date 
+          } 
+        };
         const fakeRes = {
           status: (code) => ({
             json: (response) => {
-              console.log(` Reschedule response for Examiner ${examiner.examiner_id}:`, response);
+              console.log(`Reschedule response for Examiner ${examiner.examiner_id}:`, response);
             },
           }),
         };
 
         await rescheduleLectures(fakeReq, fakeRes);
-        
       } catch (error) {
-        console.error(` Error while rescheduling lectures for Examiner ${examinerObjectId}:`, error);
+        console.error(`Error while rescheduling lectures for Examiner ${examinerObjectId}:`, error);
       }
     }
 
+    // 5️⃣ Respond
     res.status(201).json({ 
       message: "Presentation scheduled successfully & lectures rescheduled", 
       newPresentation 
     });
 
   } catch (error) {
-    console.error(" Error in addPresentation:", error);
+    console.error("Error in addPresentation:", error);
     next(error);
   }
 };
-
-
-
-
 
 
 export const checkAvailability = async (req, res, next) => {
@@ -254,27 +337,28 @@ export const getPresentationById = async (req, res, next) => {
   }
 };
 
+
 export const updatePresentation = async (req, res) => {
   try {
     const { id } = req.params;
     const { students, examiners, venue, date, timeRange } = req.body;
 
-    // Fetch the existing presentation from the database
+    //  Fetch the existing presentation
     const existingPresentation = await Presentation.findById(id);
-
     if (!existingPresentation) {
       return res.status(404).json({ message: "Presentation not found" });
     }
 
-    // Check if the time slot, venue, and date are actually being changed
+   
+    //  Check if the time slot, venue, and date are changed
     const isTimeChanged =
       existingPresentation.date !== date ||
       existingPresentation.timeRange.startTime !== timeRange.startTime ||
       existingPresentation.timeRange.endTime !== timeRange.endTime ||
       existingPresentation.venue.toString() !== venue;
 
+    //  If time changed, validate time slot
     if (isTimeChanged) {
-      // Validate time slot availability if the time slot has been changed
       const available = await isTimeSlotAvailable(
         date,
         timeRange.startTime,
@@ -283,21 +367,104 @@ export const updatePresentation = async (req, res) => {
         venue,
         students
       );
-
       if (!available) {
         return res.status(400).json({ message: "Selected time slot is not available" });
       }
     }
 
-    // Update the presentation
+    //  Update the presentation
     const updatedPresentation = await Presentation.findByIdAndUpdate(id, req.body, { new: true });
+    if (!updatedPresentation) {
+      return res.status(404).json({ message: "Presentation not found after update" });
+    }
 
+    //  Send Email Notifications to All Examiners & Students
+    try {
+      // Fetch all examiners & students from DB to get their emails
+      const examinerDocs = await Examiner.find({ _id: { $in: examiners } });
+      const studentDocs = await Student.find({ _id: { $in: students } });
+
+      const { title, department} = updatedPresentation;
+      const { startTime, endTime } = updatedPresentation.timeRange;
+      const venueDoc = await Venue.findById(existingPresentation.venue);
+      if (!venueDoc) {
+        return res.status(404).json({ message: "Venue not found" });
+      }
+      
+      // 3) Now you have the friendly venue_id
+      const actualVenueId = venueDoc.venue_id;
+      
+            
+
+      // Email examiners
+      for (const exDoc of examinerDocs) {
+        if (exDoc.email) {
+          const subject = "Presentation Updated";
+          const text = `Dear Examiner,
+
+The presentation "${title}" has been updated.
+Department: ${department}
+New Date: ${date}
+Time: ${startTime} - ${endTime}
+Venue: ${actualVenueId}
+
+Please take note of these changes.
+`;
+          await sendEmail(exDoc.email, subject, text);
+        }
+      }
+
+      // Email students
+      for (const stDoc of studentDocs) {
+        if (stDoc.email) {
+          const subject = "Presentation Updated";
+          const text = `Dear Student,
+
+Your presentation "${title}" has been updated.
+Department: ${department}
+New Date: ${date}
+Time: ${startTime} - ${endTime}
+Venue: ${actualVenueId}
+
+Please take note of these changes.
+`;
+          await sendEmail(stDoc.email, subject, text);
+        }
+      }
+    } catch (emailError) {
+      console.error("Error sending email notifications:", emailError);
+    }
+
+    //  If the date changed, reschedule other lectures for each examiner
+    if (isTimeChanged) {
+      for (let examinerObjectId of examiners) {
+        try {
+          const examiner = await Examiner.findById(examinerObjectId);
+          if (!examiner) continue;
+
+          const fakeReq = { body: { lecturerId: examiner.examiner_id, date } };
+          const fakeRes = {
+            status: (code) => ({
+              json: (response) => {
+                console.log(`Reschedule response for Examiner ${examiner.examiner_id}:`, response);
+              },
+            }),
+          };
+
+          await rescheduleLectures(fakeReq, fakeRes);
+        } catch (error) {
+          console.error(`Error while rescheduling lectures for Examiner ${examinerObjectId}:`, error);
+        }
+      }
+    }
+
+    //  Respond
     res.status(200).json(updatedPresentation);
   } catch (error) {
+    console.error("Error updating presentation:", error);
     res.status(500).json({ message: "Server error", error });
   }
 };
-
 
 export const deletePresentation = async (req, res) => {
   try {
@@ -315,112 +482,6 @@ export const deletePresentation = async (req, res) => {
 };
 
 
-// export const smartSuggestSlot = async (req, res) => {
-//   try {
-//     const { studentIds, date, numExaminers, duration } = req.body;
-
-//     // Fetch students and determine department
-//     const students = await Student.find({ _id: { $in: studentIds } });
-//     if (students.length === 0) {
-//       return res.status(400).json({ message: "No valid students found" });
-//     }
-//     const department = students[0].department;
-
-//     // Get all examiners from the department
-//     const departmentExaminers = await Examiner.find({ department });
-
-//     if (departmentExaminers.length < numExaminers) {
-//       return res.status(400).json({ message: "Not enough examiners in this department" });
-//     }
-
-//     // Get all venues (DO NOT exclude venues just because they have a presentation that day)
-//     const allVenues = await Venue.find();
-
-//     if (allVenues.length === 0) {
-//       return res.status(400).json({ message: "No venues found" });
-//     }
-
-//     // Define possible time slots for the day
-//     const allTimeSlots = [
-//       { startTime: "08:00", endTime: "09:00" },
-//       { startTime: "09:00", endTime: "10:00" },
-//       { startTime: "10:00", endTime: "11:00" },
-//       { startTime: "11:00", endTime: "12:00" },
-//       { startTime: "12:00", endTime: "13:00" },
-//       { startTime: "13:00", endTime: "14:00" },
-//       { startTime: "14:00", endTime: "15:00" },
-//       { startTime: "15:00", endTime: "16:00" },
-//       { startTime: "16:00", endTime: "17:00" }
-//     ];
-
-//     // Helper function to check if a time slot can accommodate the given duration
-//     const getAvailableTimeSlot = (startTime, duration) => {
-//       const [hours, minutes] = startTime.split(":").map(num => parseInt(num, 10));
-//       const startDate = new Date(0, 0, 0, hours, minutes);
-//       const endDate = new Date(startDate.getTime() + duration * 60000); // Adding duration (ms)
-
-//       const endHours = endDate.getHours();
-//       const endMinutes = endDate.getMinutes();
-
-//       return {
-//         startTime: `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`,
-//         endTime: `${endHours.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`
-//       };
-//     };
-
-//     for (let venue of allVenues) {
-//       for (let slot of allTimeSlots) {
-//         // Adjust the slot to match the required duration
-//         const adjustedSlot = getAvailableTimeSlot(slot.startTime, duration);
-
-//         // Check venue availability for the new time slot
-//         const isVenueAvailable = await isTimeSlotAvailable(
-//           date,
-//           adjustedSlot.startTime,
-//           adjustedSlot.endTime,
-//           [],
-//           venue._id,
-//           studentIds
-//         );
-
-//         if (!isVenueAvailable) continue; // Skip if venue is busy
-
-//         // Filter available examiners for this slot
-//         let availableExaminers = [];
-//         for (let examiner of departmentExaminers) {
-//           const isExaminerAvailable = await isTimeSlotAvailable(
-//             date,
-//             adjustedSlot.startTime,
-//             adjustedSlot.endTime,
-//             [examiner._id],
-//             venue._id,
-//             studentIds
-//           );
-
-//           if (isExaminerAvailable) {
-//             availableExaminers.push(examiner);
-//           }
-
-//           if (availableExaminers.length >= numExaminers) break; // Stop once we have enough examiners
-//         }
-
-//         // If enough examiners are found, return the best slot
-//         if (availableExaminers.length >= numExaminers) {
-//           return res.status(200).json({
-//             examiners: availableExaminers.slice(0, numExaminers),
-//             venue,
-//             department,
-//             timeRange: adjustedSlot,
-//           });
-//         }
-//       }
-//     }
-
-//     return res.status(400).json({ message: "No suitable time slots available" });
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error });
-//   }
-// };
 
 
 export const smartSuggestSlot = async (req, res) => {
@@ -586,73 +647,6 @@ export const smartSuggestSlot = async (req, res) => {
 };
 
 
-// export const smartSuggestSlotForReschedule = async (req, res) => {
-//   try {
-//     const { presentationId } = req.body;
-
-//     // Find the presentation
-//     const presentation = await Presentation.findById(presentationId)
-//       .populate("students")
-//       .populate("examiners");
-
-//     if (!presentation) {
-//       return res.status(404).json({ message: "Presentation not found" });
-//     }
-
-//     const department = presentation.department;
-//     const duration = presentation.duration;
-//     const studentIds = presentation.students.map((s) => s._id);
-//     const examinerIds = presentation.examiners.map((e) => e._id);
-//     const date = new Date().toISOString().split("T")[0]; // Get today's date
-
-//     // Get all venues (without removing those that have a presentation)
-//     const allVenues = await Venue.find();
-
-//     if (allVenues.length === 0) {
-//       return res.status(400).json({ message: "No venues found" });
-//     }
-
-//     // Define possible time slots
-//     const allTimeSlots = [
-//       { startTime: "08:00", endTime: "09:00" },
-//       { startTime: "09:00", endTime: "10:00" },
-//       { startTime: "10:00", endTime: "11:00" },
-//       { startTime: "11:00", endTime: "12:00" },
-//       { startTime: "12:00", endTime: "13:00" },
-//       { startTime: "13:00", endTime: "14:00" },
-//       { startTime: "14:00", endTime: "15:00" },
-//       { startTime: "15:00", endTime: "16:00" },
-//       { startTime: "16:00", endTime: "17:00" },
-//     ];
-
-//     for (let venue of allVenues) {
-//       for (let slot of allTimeSlots) {
-//         // Check venue, examiner, and student availability for this time slot
-//         const isAvailable = await isTimeSlotAvailable(
-//           date,
-//           slot.startTime,
-//           slot.endTime,
-//           examinerIds,
-//           venue._id,
-//           studentIds
-//         );
-
-//         if (isAvailable) {
-//           return res.status(200).json({
-//             department,
-//             venue,
-//             timeRange: slot,
-//           });
-//         }
-//       }
-//     }
-
-//     return res.status(400).json({ message: "No suitable time slots available" });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: "Server error", error });
-//   }
-// };
 
 
 
@@ -660,7 +654,7 @@ export const smartSuggestSlotForReschedule = async (req, res) => {
   try {
     const { presentationId } = req.body;
 
-    // 1️⃣ Fetch the existing presentation details
+    // 1) Fetch the existing presentation
     const presentation = await Presentation.findById(presentationId)
       .populate("students")
       .populate("examiners");
@@ -669,20 +663,23 @@ export const smartSuggestSlotForReschedule = async (req, res) => {
       return res.status(404).json({ message: "Presentation not found" });
     }
 
+    // Gather data
     const department = presentation.department;
     const duration = presentation.duration;
     const studentIds = presentation.students.map((s) => s._id);
 
-    // ✅ Convert examiner IDs to ObjectId
-    const examinerIds = await Examiner.find({ examiner_id: { $in: presentation.examiners.map(e => e.examiner_id) } })
-      .then(examiners => examiners.map(examiner => examiner._id));
+    // Convert "examiner_id" -> actual Examiner docs -> their _ids
+    const examinerDocs = await Examiner.find({
+      examiner_id: { $in: presentation.examiners.map((e) => e.examiner_id) },
+    });
+    const examinerIds = examinerDocs.map((exam) => exam._id);
 
-    // 2️⃣ Find the Best New Date (Next 14 Days) with the Fewest Lectures
+    // 2) Find bestDate (lowest total lectures) over next 14 days
     const possibleDates = [];
     for (let i = 1; i <= 14; i++) {
       const date = new Date();
       date.setDate(date.getDate() + i);
-      possibleDates.push(date.toISOString().split("T")[0]); // Format YYYY-MM-DD
+      possibleDates.push(date.toISOString().split("T")[0]); // "YYYY-MM-DD"
     }
 
     let bestDate = null;
@@ -695,13 +692,10 @@ export const smartSuggestSlotForReschedule = async (req, res) => {
           "weekdays.lecturer": examiner,
           "weekdays.date": date,
         });
-
         if (lecturerSchedule) {
           totalLectures += lecturerSchedule.weekdays.length;
         }
       }
-
-      // **Pick the date with the least lectures**
       if (totalLectures < minLectures) {
         minLectures = totalLectures;
         bestDate = date;
@@ -712,204 +706,383 @@ export const smartSuggestSlotForReschedule = async (req, res) => {
       return res.status(400).json({ message: "No suitable new date found" });
     }
 
-    // 3️⃣ Fetch All Available Venues
+    // 3) Fetch All Venues
     const allVenues = await Venue.find();
-    if (allVenues.length === 0) {
+    if (!allVenues || allVenues.length === 0) {
       return res.status(400).json({ message: "No venues found" });
     }
 
-    // 4️⃣ Fetch Existing Presentations on the New Date
-    const existingPresentations = await Presentation.find({ date: bestDate });
-
-    // **Map Examiner-to-Venue for Today**
-    const examinerVenueMap = new Map();
-    const venueUsed = new Set();
-
-    existingPresentations.forEach((presentation) => {
-      presentation.examiners.forEach((examiner) => {
-        examinerVenueMap.set(examiner.toString(), presentation.venue.toString());
-        venueUsed.add(presentation.venue.toString());
-      });
+    // 3.5) Fetch existing, non-rejected requests for bestDate => skip those times
+    const existingRequests = await RescheduleRequest.find({
+      "requestedSlot.date": bestDate,
+      status: { $ne: "Rejected" },
     });
+    // Build skipRanges
+    const skipRanges = existingRequests.map((r) => ({
+      start: r.requestedSlot.timeRange.startTime,
+      end: r.requestedSlot.timeRange.endTime,
+    }));
 
-    // 5️⃣ Define Available Time Slots
+    // Helper to convert HH:MM -> total minutes
+    const convertToMinutes = (time) => {
+      const [hh, mm] = time.split(":").map(Number);
+      return hh * 60 + mm;
+    };
+
+    // Overlap check
+    const overlaps = (start1, end1, start2, end2) => {
+      // Overlap if start1 < end2 and end1 > start2
+      return start1 < end2 && end1 > start2;
+    };
+
+    // 4) Define time slots from 08:00 - 16:30
     const allTimeSlots = [
       "08:00", "08:30", "09:00", "09:30",
       "10:00", "10:30", "11:00", "11:30",
       "12:00", "12:30", "13:00", "13:30",
       "14:00", "14:30", "15:00", "15:30",
-      "16:00", "16:30"
+      "16:00", "16:30",
     ];
 
-    // **Helper Function to Calculate the Correct Time Range**
+    // Helper to produce an endTime from a startTime + duration
     const calculateTimeRange = (startTime, duration) => {
-      const [startHours, startMinutes] = startTime.split(":").map(num => parseInt(num, 10));
+      const [startHours, startMinutes] = startTime.split(":").map(Number);
       const startDate = new Date(0, 0, 0, startHours, startMinutes);
-      const endDate = new Date(startDate.getTime() + duration * 60000); // Adding duration (in ms)
+      const endDate = new Date(startDate.getTime() + duration * 60000);
 
+      const endHH = String(endDate.getHours()).padStart(2, "0");
+      const endMM = String(endDate.getMinutes()).padStart(2, "0");
       return {
-        startTime: `${startHours.toString().padStart(2, "0")}:${startMinutes.toString().padStart(2, "0")}`,
-        endTime: `${endDate.getHours().toString().padStart(2, "0")}:${endDate.getMinutes().toString().padStart(2, "0")}`
+        startTime,
+        endTime: `${endHH}:${endMM}`,
       };
     };
 
+    // 5) Try each slot
     for (let slot of allTimeSlots) {
-      const adjustedSlot = calculateTimeRange(slot, duration);
+      const { startTime, endTime } = calculateTimeRange(slot, duration);
 
-      // **Check if the Time Slot is Available**
+      // 5.1) Skip if overlaps with any skipRange
+      const requestedStartMin = convertToMinutes(startTime);
+      const requestedEndMin = convertToMinutes(endTime);
+
+      let skipThisSlot = false;
+      for (const sr of skipRanges) {
+        const srStart = convertToMinutes(sr.start);
+        const srEnd = convertToMinutes(sr.end);
+        if (overlaps(requestedStartMin, requestedEndMin, srStart, srEnd)) {
+          skipThisSlot = true;
+          break;
+        }
+      }
+      if (skipThisSlot) continue;
+
+      // 5.2) Check isTimeSlotAvailable for all examiners/students
       const isTimeAvailable = await isTimeSlotAvailable(
         bestDate,
-        adjustedSlot.startTime,
-        adjustedSlot.endTime,
+        startTime,
+        endTime,
         examinerIds,
-        null,
+        null, // We'll pick a new venue
         studentIds
       );
+      if (!isTimeAvailable) continue;
 
-      if (!isTimeAvailable) continue; // Skip if the time is already taken
-
-      let selectedVenue = null;
-      let selectedExaminers = [];
-
-      // **1️⃣ First, Check If Examiners Are Already Assigned Today and Keep the Same Venue**
-      for (const examiner of examinerIds) {
-        if (examinerVenueMap.has(examiner.toString())) {
-          selectedVenue = examinerVenueMap.get(examiner.toString());
-          selectedExaminers.push(examiner);
-          if (selectedExaminers.length >= examinerIds.length) break;
-        }
+      // 5.3) If time is free, pick the first free venue
+      let chosenVenue = null;
+      for (let ven of allVenues) {
+        // For simplicity, pick the first venue
+        chosenVenue = ven;
+        break;
       }
+      if (!chosenVenue) continue;
 
-      // **2️⃣ If No Examiner Is Assigned a Venue, Select a New Venue**
-      if (selectedExaminers.length < examinerIds.length) {
-        let newExaminers = examinerIds.filter(
-          (ex) => !examinerVenueMap.has(ex.toString())
-        );
-
-        if (newExaminers.length >= examinerIds.length) {
-          selectedExaminers = newExaminers.slice(0, examinerIds.length);
-
-          for (let venue of allVenues) {
-            if (!venueUsed.has(venue._id.toString())) {
-              selectedVenue = venue;
-              venueUsed.add(venue._id.toString());
-              break;
-            }
-          }
-        }
-      }
-
-      if (!selectedVenue || selectedExaminers.length < examinerIds.length) {
-        return res.status(400).json({ message: "No suitable venue and examiners available" });
-      }
-
-      // Fetch Full Venue Details Before Returning the Response
-      const venueDetails = await Venue.findById(selectedVenue);
-
+      // Return suggestion
       return res.status(200).json({
         date: bestDate,
-        examiners: selectedExaminers,
-        venue: venueDetails,
+        examiners: examinerIds,
+        venue: chosenVenue, // full doc
         department,
-        timeRange: adjustedSlot,
+        timeRange: { startTime, endTime },
       });
     }
 
+    // If we exit the loop with no return => no suitable slot
     return res.status(400).json({ message: "No suitable time slots available" });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error", error });
+    console.error("smartSuggestSlotForReschedule error:", error);
+    return res.status(500).json({ message: "Server error", error });
   }
 };
 
 
 
-
 export const requestReschedule = async (req, res) => {
   try {
-    const { presentationId, date, timeRange, venue, reason } = req.body;
-
-    // Ensure user is authenticated
-    if (!req.user || !req.user._id || !req.user.role) {
+    if (!req.user || !req.user.id || !req.user.role) {
       return res.status(401).json({ message: "Unauthorized request: User not found." });
     }
 
-    const userId = req.user._id;
-    const userType = req.user.role; // "Student" or "Examiner"
+    const userId = req.user.id;        // from token
+    const userType = req.user.role;    // e.g. 'examiner'
 
-    // Fetch the presentation
+    const { presentationId, date, timeRange, venue, reason, requestorEmail } = req.body;
+
+    // 1) Validate presentation
     const presentation = await Presentation.findById(presentationId);
-    if (!presentation) return res.status(404).json({ message: "Presentation not found" });
+    if (!presentation) {
+      return res.status(404).json({ message: "Presentation not found" });
+    }
 
-    // Ensure required fields are provided
+    // 2) Validate fields
     if (!date || !timeRange || !venue) {
       return res.status(400).json({ message: "Date, time range, and venue are required." });
     }
 
-    // Create a reschedule request
+    // 3) Create a reschedule request
     const newRequest = new RescheduleRequest({
       presentation: presentationId,
       requestedBy: { userId, userType },
+      requestorEmail: requestorEmail || "", // store the email from the frontend
       requestedSlot: { date, timeRange, venue },
       reason,
       status: "Pending",
     });
 
     await newRequest.save();
-    res.status(201).json({ message: "Reschedule request submitted successfully", newRequest });
+    return res.status(201).json({
+      message: "Reschedule request submitted successfully",
+      newRequest
+    });
 
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Error in requestReschedule:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 export const approveOrRejectReschedule = async (req, res) => {
   try {
     const { requestId, action } = req.body;
 
-    // Find the reschedule request
-    const request = await RescheduleRequest.findById(requestId).populate("presentation");
-    if (!request) return res.status(404).json({ message: "Reschedule request not found" });
+    // 1) Fetch the reschedule request & populate the presentation + venue
+    const request = await RescheduleRequest.findById(requestId).populate({
+      path: "presentation",
+      populate: { path: "venue", model: "Venue" },
+    });
+    if (!request) {
+      return res.status(404).json({ message: "Reschedule request not found" });
+    }
 
+    // 2) Grab the presentation from the request
+    const presentation = request.presentation;
+    if (!presentation) {
+      return res.status(404).json({ message: "Presentation not found in request." });
+    }
+
+    // 3) The requestor's email was stored in the doc at creation time
+    const requestorEmail = request.requestorEmail || null;
+    console.log("Requestor's email from doc:", requestorEmail);
+
+    // 4) If "Reject"
     if (action === "Reject") {
       request.status = "Rejected";
       await request.save();
+
+      // If we have a requestor email, send the "Rejected" message
+      if (requestorEmail) {
+        console.log("Sending reject email to:", requestorEmail);
+        const subject = "Reschedule Request Rejected";
+        const text = `Dear Examiner,
+
+Your reschedule request for presentation "${presentation.title}" has been rejected.
+
+Reason:
+${request.reason}
+
+If you have questions, please contact the admin.
+`;
+        await sendEmail(requestorEmail, subject, text);
+      } else {
+        console.log("No requestor email found, skipping reject email.");
+      }
+
       return res.status(200).json({ message: "Reschedule request rejected successfully" });
     }
 
-    const { date, timeRange, venue } = request.requestedSlot;
-    const { examiners, students, duration } = request.presentation;
+    // 5) Approve logic
+    let actualVenueId = "UnknownVenue";
+    if (presentation.venue?.venue_id) {
+      actualVenueId = presentation.venue.venue_id;
+    }
 
-    const isAvailable = await isTimeSlotAvailable(date, timeRange.startTime, timeRange.endTime, examiners, venue, students);
+    const { date, timeRange, venue } = request.requestedSlot;
+    const { examiners, students, title } = presentation;
+
+    // 5.1) Check if the time slot is available
+    const isAvailable = await isTimeSlotAvailable(
+      date,
+      timeRange.startTime,
+      timeRange.endTime,
+      examiners,
+      venue,
+      students
+    );
     if (!isAvailable) {
       request.status = "Rejected";
       await request.save();
-      return res.status(400).json({ message: "Time slot is not available. Request automatically rejected." });
+
+      if (requestorEmail) {
+        console.log("Sending auto-reject (time slot unavailable) email to:", requestorEmail);
+        const subject = "Reschedule Request Rejected - Time Slot Unavailable";
+        const text = `Dear Examiner,
+
+Your reschedule request for presentation "${title}" was automatically rejected because the requested time slot is not available.
+
+Please contact the admin for further details.
+`;
+        await sendEmail(requestorEmail, subject, text);
+      } else {
+        console.log("No requestor email found, skipping auto-reject email.");
+      }
+
+      return res.status(400).json({
+        message: "Time slot is not available. Request automatically rejected.",
+      });
     }
 
-    await Presentation.findByIdAndUpdate(request.presentation._id, {
+    // 6) Update the presentation with new date/time/venue
+    await Presentation.findByIdAndUpdate(presentation._id, {
       date,
       timeRange,
       venue,
     });
 
+    // 7) Mark request as Approved
     request.status = "Approved";
     await request.save();
 
-    res.status(200).json({ message: "Reschedule request approved and presentation updated successfully" });
+    // 8) Email the requestor about approval
+    if (requestorEmail) {
+      console.log("Sending approve email to:", requestorEmail);
+      const subject = "Reschedule Request Approved";
+      const text = `Dear Examiner,
+
+Your reschedule request for presentation "${title}" has been approved!
+
+New Date: ${date}
+Time: ${timeRange.startTime} - ${timeRange.endTime}
+Venue: ${actualVenueId}
+
+Thank you.
+`;
+      await sendEmail(requestorEmail, subject, text);
+    } else {
+      console.log("No requestor email found, skipping approve email.");
+    }
+
+    // 9) Email all examiners in the presentation
+    console.log("Sending update to all examiners in the presentation...");
+    const examinerDocs = await Examiner.find({ _id: { $in: examiners } });
+    for (const exDoc of examinerDocs) {
+      if (exDoc.email) {
+        const subject = "Presentation Rescheduled - Examiner Notification";
+        const text = `Dear Examiner,
+
+The presentation "${title}" has been rescheduled.
+
+New Date: ${date}
+Time: ${timeRange.startTime} - ${timeRange.endTime}
+Venue: ${actualVenueId}
+
+Please take note of these changes.
+`;
+        await sendEmail(exDoc.email, subject, text);
+      }
+    }
+
+    // 🔟 Email all students
+    console.log("Sending update to students...");
+    const studentDocs = await Student.find({ _id: { $in: students } });
+    for (const stDoc of studentDocs) {
+      if (stDoc.email) {
+        const subject = "Presentation Rescheduled - Student Notification";
+        const text = `Dear Student,
+
+Your presentation "${title}" has been rescheduled.
+
+New Date: ${date}
+Time: ${timeRange.startTime} - ${timeRange.endTime}
+Venue: ${actualVenueId}
+
+Please be prepared accordingly.
+`;
+        await sendEmail(stDoc.email, subject, text);
+      }
+    }
+
+    //  Reschedule other lectures for each examiner
+    console.log("Rescheduling other lectures for examiners...");
+    for (const exDoc of examinerDocs) {
+      const fakeReq = {
+        body: {
+          lecturerId: exDoc.examiner_id,
+          date,
+        },
+      };
+      const fakeRes = {
+        status: (code) => ({
+          json: (response) => {
+            console.log(`Reschedule response for Examiner ${exDoc.examiner_id}:`, response);
+          },
+        }),
+      };
+      try {
+        await rescheduleLectures(fakeReq, fakeRes);
+      } catch (err) {
+        console.error(`Error while rescheduling for Examiner ${exDoc.examiner_id}:`, err);
+      }
+    }
+
+    return res.status(200).json({
+      message: "Reschedule request approved, presentation updated, and emails sent.",
+    });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error });
+    console.error("Error approving/rejecting reschedule:", error);
+    return res.status(500).json({ message: "Server error", error });
   }
 };
 
+
+
+// controllers/reschedule.controller.js (example)
 export const getAllRequests = async (req, res, next) => {
   try {
-    const requests = await RescheduleRequest.find();
+    const requests = await RescheduleRequest.find()
+      .populate({
+        path: "presentation",
+        populate: [
+          { path: "examiners", model: "Examiner" },
+          { path: "students", model: "Student" },
+          { path: "venue", model: "Venue" },
+        ],
+      })
+      .populate({
+        path: "requestedSlot.venue",
+        model: "Venue",
+      })
+      .populate({
+        path: "requestedBy.userId",
+        model: "User", // or "User" if that's where examiner_id is stored
+      });
+
     res.status(200).json(requests);
   } catch (error) {
     next(error);
   }
 };
+
 
 export const deleteRescheduleRequest = async (req, res) => {
   try {
@@ -1016,5 +1189,59 @@ export const getUserPresentations = async (req, res, next) => {
   }
 };
 
+export const getRescheduleRequestsForExaminer = async (req, res) => {
+  try {
+    // 1) The authenticated examiner's ObjectId from JWT
+    const examinerId = req.user.id; 
+
+    // 2) Find all requests where `requestedBy.userId` = examinerId
+    //    Populate presentation + ONLY the `venue_id` from venue (omitting `_id`)
+    const requests = await RescheduleRequest.find({
+      "requestedBy.userId": examinerId
+    })
+    .populate({
+      path: "presentation",
+      populate: {
+        path: "venue",
+        model: "Venue",
+        select: "venue_id -_id", // Only return `venue_id`, exclude `_id`
+      }
+    })
+    .sort({ created_at: -1 }); 
+
+    // 3) If none found
+    if (!requests || requests.length === 0) {
+      return res.status(404).json({ message: "No reschedule requests found for this examiner" });
+    }
+
+    // 4) Return them
+    return res.status(200).json(requests);
+  } catch (error) {
+    console.error("Error fetching reschedule requests for examiner:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
 
 
+
+export const deleteOldRejectedRequests = async (req, res) => {
+  try {
+    // 1) Calculate cutoff date (2 days ago)
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 2);
+
+    // 2) Delete all Rejected requests older than cutoff
+    const result = await RescheduleRequest.deleteMany({
+      status: "Rejected",
+      created_at: { $lt: cutoffDate },
+    });
+
+    // 3) Return how many were deleted
+    return res.status(200).json({
+      message: `Deleted ${result.deletedCount} old rejected requests.`,
+    });
+  } catch (error) {
+    console.error("Error deleting old rejected requests:", error);
+    return res.status(500).json({ message: "Server error", error });
+  }
+};

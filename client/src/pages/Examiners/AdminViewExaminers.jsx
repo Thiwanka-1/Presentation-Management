@@ -105,7 +105,8 @@ const AdminViewExaminers = () => {
                 <th className="px-4 py-3 text-left text-sm font-medium">Name</th>
                 <th className="px-4 py-3 text-left text-sm font-medium pl-14">Email</th>
                 <th className="px-4 py-3 text-left text-sm font-mdeium">Department</th>
-                <th className="px-3 py-3 text-left text-sm font-medium pl-24">Actions</th>
+                <th className="px-4 py-3 text-left text-sm font-mdeium pl-14">Phone</th>
+                <th className="px-3 py-3 text-left text-sm font-medium pl-16">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -116,13 +117,9 @@ const AdminViewExaminers = () => {
                     <td className="px-4 py-2 border-b">{examiner.name}</td>
                     <td className="px-4 py-2 border-b">{examiner.email}</td>
                     <td className="px-4 py-2 border-b pl-10">{examiner.department}</td>
+                    <td className="px-4 py-2 border-b pl-10">{examiner.phone}</td>
                     <td className="px-3 py-2 border-b flex space-x-2">
-                      <button
-                        onClick={() => navigate(`/examiner-detail/${examiner._id}`)}
-                        className="bg-green-500 text-white py-1 px-3 rounded-lg hover:bg-green-600 transition-colors"
-                      >
-                        Details
-                      </button>
+                      
                       <button
                         onClick={() => navigate(`/examiner-update/${examiner._id}`)}
                         className="bg-blue-500 text-white py-1 px-3 rounded-lg hover:bg-blue-600 transition-colors"

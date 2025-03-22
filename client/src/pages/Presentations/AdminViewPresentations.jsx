@@ -156,7 +156,7 @@ const AdminViewPresentations = () => {
                 <th className="px-6 py-3 text-left text-sm font-medium">Venue</th>
                 <th className="px-6 py-3 text-left text-sm font-medium">Students</th>
                 <th className="px-6 py-3 text-left text-sm font-medium">Examiners</th>
-                <th className="px-3 py-3 text-left text-sm font-medium">Actions</th>
+                <th className="px-10 py-3 text-left text-sm font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -181,12 +181,7 @@ const AdminViewPresentations = () => {
                     ))}
                   </td>
                   <td className="px-3 py-4 text-sm flex space-x-2">
-                    <button
-                      onClick={() => navigate(`/presentation-detail/${presentation._id}`)}
-                      className="bg-green-500 text-white py-1 px-3 rounded-lg hover:bg-green-600 transition-colors"
-                    >
-                      Details
-                    </button>
+                   
                     <button
                       onClick={() => navigate(`/presentation-update/${presentation._id}`)}
                       className="bg-blue-500 text-white py-1 px-3 rounded-lg hover:bg-blue-600 transition-colors"

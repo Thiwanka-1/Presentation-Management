@@ -1,3 +1,4 @@
+// models/RescheduleRequest.js
 import mongoose from "mongoose";
 
 const rescheduleRequestSchema = new mongoose.Schema({
@@ -8,7 +9,12 @@ const rescheduleRequestSchema = new mongoose.Schema({
   },
   requestedBy: {
     userId: { type: mongoose.Schema.Types.ObjectId, required: true },
-    userType: { type: String, enum: ["Examiner"], required: true },
+    userType: { type: String, enum: ["examiner"], required: true },
+  },
+  // NEW FIELD: store the requestor's email
+  requestorEmail: {
+    type: String,
+    default: "",
   },
   requestedSlot: {
     date: { type: String, required: true },

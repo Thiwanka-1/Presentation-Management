@@ -92,6 +92,11 @@ export default function Sidebar() {
                 View Timetabels
               </Link>
             </li>
+            <li className="mb-4">
+              <Link to="/reschedule-req" className="hover:text-gray-300">
+                View Rescedule Requests
+              </Link>
+            </li>
           </>
         )}
 
@@ -110,7 +115,12 @@ export default function Sidebar() {
             </li>
             <li className="mb-4">
               <Link to="/rescheduled-lectures" className="hover:text-gray-300">
-                Rescedules Lectures
+                Rescedules Lectures 
+              </Link>
+            </li>
+            <li className="mb-4">
+              <Link to="/examiner-req" className="hover:text-gray-300">
+                Rescedule Requests
               </Link>
             </li>
           </>
@@ -129,12 +139,7 @@ export default function Sidebar() {
                 Lecture Timetable
               </Link>
             </li>
-            
-            <li className="mb-4">
-              <Link to="/student-timetable" className="hover:text-gray-300">
-                Lecture Timetable
-              </Link>
-            </li>
+
           </>
         )}
       </ul>

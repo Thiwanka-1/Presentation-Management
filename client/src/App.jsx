@@ -35,6 +35,10 @@ import UpdateModule from './pages/Modules/UpdateModule';
 import UpdatePresentation from './pages/Presentations/UpdatePresentation';
 import UpdateVenue from './pages/Venues/UpdateVenue';
 import ResceduledLectures from './pages/Examiners/ResceduledLectures';
+import RescheduleRequestForm from './pages/Rescedule/RescheduleRequestForm';
+import ManageRescheduleRequests from './pages/Rescedule/ManageRescheduleRequests';
+import ExaminerRescheduleRequests from './pages/Rescedule/ExaminerRescheduleRequests';
+
 
 
 Modal.setAppElement("#root");  // Fixes the warning
@@ -77,17 +81,21 @@ export default function App() {
         <Route path = "/examiner-timetable" element = {<ExaminerTimetable />} /> {/* done */}
 
 
-        <Route path = "/add-group" element = {<AddStudentGroup />} />
+        <Route path = "/add-group" element = {<AddStudentGroup />} /> {/* done */}
         <Route path = "/update-group/:id" element = {<UpdateStudentGroup />} /> {/* done */}
-        <Route path = "/view-groups" element = {<ViewStudentGroups />} />
+        <Route path = "/view-groups" element = {<ViewStudentGroups />} /> {/* done */}
 
-        <Route path = "/add-module" element = {<AddModule />} />
-        <Route path = "/view-modules" element = {<ViewModules />} />
+        <Route path = "/add-module" element = {<AddModule />} /> {/* done */}
+        <Route path = "/view-modules" element = {<ViewModules />} /> {/* done */}
         <Route path = "/update-module/:id" element = {<UpdateModule />} /> {/* done */}
 
         <Route path = "/rescheduled-lectures" element = {<ResceduledLectures />} /> {/* done */}
 
+        <Route path = "/reschedule-request/:presentationId" element = {<RescheduleRequestForm />} /> {/* done */}
 
+        <Route path = "/reschedule-req" element = {<ManageRescheduleRequests />} /> {/* done */}
+
+        <Route path = "/examiner-req" element = {<ExaminerRescheduleRequests />} /> {/* done */}
       </Route>
 
       <Route element={<PrivateRoute adminOnly={true} />}>

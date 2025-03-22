@@ -186,7 +186,7 @@ const ExaminerViewPresentations = () => {
                     </td>
                     <td className="px-4 py-2 border-b">
                       <button
-                        onClick={() => navigate(`/presentations/${presentation._id}`)}
+                        onClick={() => navigate(`/reschedule-request/${presentation._id}`)}
                         className="bg-purple-600 text-white p-2 rounded"
                       >
                         Reschedule
