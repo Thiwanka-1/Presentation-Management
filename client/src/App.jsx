@@ -39,7 +39,7 @@ import RescheduleRequestForm from './pages/Rescedule/RescheduleRequestForm';
 import ManageRescheduleRequests from './pages/Rescedule/ManageRescheduleRequests';
 import ExaminerRescheduleRequests from './pages/Rescedule/ExaminerRescheduleRequests';
 
-
+import UpdateExaminer from './pages/Examiners/UpdateExaminer';
 
 Modal.setAppElement("#root");  // Fixes the warning
 
@@ -96,6 +96,9 @@ export default function App() {
         <Route path = "/reschedule-req" element = {<ManageRescheduleRequests />} /> {/* done */}
 
         <Route path = "/examiner-req" element = {<ExaminerRescheduleRequests />} /> {/* done */}
+
+        <Route path="/examiner-update/:id" element={<UpdateExaminer />} />
+
       </Route>
 
       <Route element={<PrivateRoute adminOnly={true} />}>
