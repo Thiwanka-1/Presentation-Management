@@ -43,25 +43,44 @@ const ExaminerViewPresentations = () => {
   }, []);
 
   const handleSearch = (e) => {
-    const term = e.target.value.toLowerCase(); // Convert search input to lowercase
-    setSearchTerm(e.target.value); // Store original input to avoid modifying it
+    const term = e.target.value.toLowerCase();
+    setSearchTerm(e.target.value); // Keep original input in state
   
     const filtered = presentations.filter((presentation) => {
+      // Check title
+      const hasMatchingTitle =
+        presentation.title?.toLowerCase().includes(term) ?? false;
+  
+      // Check students
       const hasMatchingStudent = presentation.students.some((student) =>
         student.student_id.toLowerCase().includes(term)
       );
   
+      // Check department
       const hasMatchingDepartment =
-        presentation.department?.toLowerCase().includes(term) || false; // Prevent undefined errors
+        presentation.department?.toLowerCase().includes(term) ?? false;
   
+      // Check venue
       const hasMatchingVenue =
-        presentation.venue?.venue_id?.toLowerCase().includes(term) || false;
+        presentation.venue?.venue_id?.toLowerCase().includes(term) ?? false;
   
-      return hasMatchingStudent || hasMatchingDepartment || hasMatchingVenue;
+      // (Optional) Check examiners
+      const hasMatchingExaminer = presentation.examiners?.some((examiner) =>
+        examiner.examiner_id.toLowerCase().includes(term)
+      ) ?? false;
+  
+      return (
+        hasMatchingTitle ||
+        hasMatchingStudent ||
+        hasMatchingDepartment ||
+        hasMatchingVenue ||
+        hasMatchingExaminer
+      );
     });
   
     setFilteredPresentations(filtered);
   };
+  
   
   
   const handleFilterDate = (e) => {

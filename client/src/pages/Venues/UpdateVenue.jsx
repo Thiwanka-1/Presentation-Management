@@ -13,18 +13,26 @@ const UpdateVenue = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
+  // 1) onKeyDown helper to block negative or scientific notation
+  const handleNumericKeyDown = (e) => {
+    // Prevent e, E, +, -, .
+    if (["e", "E", "+", "-", "."].includes(e.key)) {
+      e.preventDefault();
+    }
+  };
+
   useEffect(() => {
     fetchVenueDetails();
   }, [id]);
 
-  // Fetch the existing venue data
+  // 2) Fetch the existing venue data
   const fetchVenueDetails = async () => {
     try {
       const response = await axios.get(`/api/venues/get-ven/${id}`);
       const ven = response.data;
       setVenueId(ven.venue_id);
       setLocation(ven.location);
-      setCapacity(ven.capacity);
+      setCapacity(String(ven.capacity));
     } catch (error) {
       setError("Failed to fetch venue details.");
     } finally {
@@ -32,7 +40,7 @@ const UpdateVenue = () => {
     }
   };
 
-  // Handle form submission
+  // 3) Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -44,12 +52,18 @@ const UpdateVenue = () => {
       return;
     }
 
+    // Optionally, you can do further checks (e.g. capacity > 0)
+    if (Number(capacity) < 1) {
+      setError("Capacity must be at least 1.");
+      return;
+    }
+
     try {
       // Send PUT request to update the venue
       await axios.put(`/api/venues/update-ven/${id}`, {
         venue_id: venueId,
         location,
-        capacity: parseInt(capacity, 10)
+        capacity: parseInt(capacity, 10),
       });
 
       setSuccessMessage("Venue updated successfully!");
@@ -62,20 +76,24 @@ const UpdateVenue = () => {
     }
   };
 
-  if (loading) return <div className="text-center text-lg font-semibold">Loading...</div>;
+  if (loading) {
+    return <div className="text-center text-lg font-semibold">Loading...</div>;
+  }
 
   return (
     <div className="p-6 min-h-screen flex justify-center bg-gray-50">
-      <div className="max-w-lg w-full bg-white p-8 shadow-lg rounded-lg h-1/2 mt-16">
+      <div className="max-w-lg w-full bg-white p-8 shadow-lg rounded-lg mt-16">
         <h1 className="text-3xl font-bold text-center mb-6">Update Venue</h1>
 
         {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
         {successMessage && <p className="text-green-600 text-sm mb-4">{successMessage}</p>}
 
         <form onSubmit={handleSubmit}>
-          {/* Venue ID */}
+          {/* Venue ID (Read Only) */}
           <div className="mb-4">
-            <label className="block text-gray-700 font-semibold mb-2">Venue ID</label>
+            <label className="block text-gray-700 font-semibold mb-2">
+              Venue ID
+            </label>
             <input
               type="text"
               className="w-full p-2 border rounded-md bg-slate-100"
@@ -86,7 +104,9 @@ const UpdateVenue = () => {
 
           {/* Location */}
           <div className="mb-4">
-            <label className="block text-gray-700 font-semibold mb-2">Location</label>
+            <label className="block text-gray-700 font-semibold mb-2">
+              Location
+            </label>
             <input
               type="text"
               className="w-full p-2 border rounded-md"
@@ -97,12 +117,16 @@ const UpdateVenue = () => {
 
           {/* Capacity */}
           <div className="mb-4">
-            <label className="block text-gray-700 font-semibold mb-2">Capacity</label>
+            <label className="block text-gray-700 font-semibold mb-2">
+              Capacity
+            </label>
             <input
               type="number"
               className="w-full p-2 border rounded-md"
               value={capacity}
               onChange={(e) => setCapacity(e.target.value)}
+              min="1"
+              onKeyDown={handleNumericKeyDown}
             />
           </div>
 
