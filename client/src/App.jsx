@@ -40,7 +40,7 @@ import ManageRescheduleRequests from './pages/Rescedule/ManageRescheduleRequests
 import ExaminerRescheduleRequests from './pages/Rescedule/ExaminerRescheduleRequests';
 
 import UpdateExaminer from './pages/Examiners/UpdateExaminer';
-
+import UpdateStudent from './pages/Students/UpdateStudent';
 Modal.setAppElement("#root");  // Fixes the warning
 
 
@@ -99,6 +99,7 @@ export default function App() {
 
         <Route path="/examiner-update/:id" element={<UpdateExaminer />} />
 
+        <Route path="/student-update/:id" element={<UpdateStudent />} />
       </Route>
 
       <Route element={<PrivateRoute adminOnly={true} />}>
