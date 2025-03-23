@@ -126,17 +126,22 @@ const AddExaminer = () => {
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-1">Department</label>
-            <input
-              type="text"
-              name="department"
-              placeholder="Enter department"
-              className="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-400"
-              onChange={handleChange}
-              value={formData.department}
-              required
-            />
-          </div>
+  <label className="block text-gray-700 font-medium mb-1">Department</label>
+  <select
+    name="department"
+    className="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-400"
+    onChange={handleChange}
+    value={formData.department}
+    required
+  >
+    <option value="" disabled>Select department</option>
+    <option value="IT">IT</option>
+    <option value="IM">IM</option>
+    <option value="SE">SE</option>
+    <option value="ISC">ISC</option>
+  </select>
+</div>
+
           <button
             type="submit"
             className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-300 text-lg font-semibold"
