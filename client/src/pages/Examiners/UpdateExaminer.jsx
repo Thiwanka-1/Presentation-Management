@@ -32,7 +32,7 @@ export default function UpdateExaminer() {
   const validate = () => {
     const tempErrors = {};
     if (!/^[a-zA-Z. ]+$/.test(formData.name)) tempErrors.name = "Only letters and '.' allowed";
-    if (!/^[0-9]{10,}$/.test(formData.phone)) tempErrors.phone = "Must be at least 10 digits";
+    if (!/^[0-9]{10}$/.test(formData.phone)) tempErrors.phone = "Phone must be exactly 10 digits.";
     if (!/\S+@\S+\.\S+/.test(formData.email)) tempErrors.email = "Invalid email format";
     if (formData.password && formData.password.length < 6) tempErrors.password = "Password must be at least 6 characters";
     setErrors(tempErrors);

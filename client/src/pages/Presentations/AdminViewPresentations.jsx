@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import { useNavigate } from "react-router-dom";
-import  autoTable from "jspdf-autotable";
 
 const AdminViewPresentations = () => {
   const navigate = useNavigate();
@@ -14,7 +14,7 @@ const AdminViewPresentations = () => {
   const [presentationToDelete, setPresentationToDelete] = useState(null);
   const [currentTime, setCurrentTime] = useState("");
 
-  // Fetch presentations from the backend
+  // Fetch presentations on mount
   useEffect(() => {
     const fetchPresentations = async () => {
       try {
@@ -25,7 +25,6 @@ const AdminViewPresentations = () => {
         console.error("Error fetching presentations:", error);
       }
     };
-
     fetchPresentations();
   }, []);
 
@@ -37,76 +36,115 @@ const AdminViewPresentations = () => {
     return () => clearInterval(intervalId);
   }, []);
 
+  // Determine if a presentation is in the past by comparing end time with now
+  const isPresentationInPast = (presentation) => {
+    // Combine date + endTime => parse as Date
+    // e.g. "2025-04-05" + "T" + "15:30" + ":00"
+    const dateStr = presentation.date + "T" + presentation.timeRange.endTime + ":00";
+    const endDateTime = new Date(dateStr);
+    const now = new Date();
+    return endDateTime < now; // If end time is before now => in the past
+  };
+
+  // Delete
   const handleDelete = async () => {
     try {
       await axios.delete(`/api/presentations/delete-pres/${presentationToDelete}`);
-      setPresentations(presentations.filter((p) => p._id !== presentationToDelete));
-      setFilteredPresentations(filteredPresentations.filter((p) => p._id !== presentationToDelete));
+      setPresentations((prev) => prev.filter((p) => p._id !== presentationToDelete));
+      setFilteredPresentations((prev) => prev.filter((p) => p._id !== presentationToDelete));
       setDeleteConfirmation(false);
     } catch (error) {
       console.error("Error deleting presentation:", error);
     }
   };
 
+  // Search
   const handleSearch = (e) => {
     const term = e.target.value;
     setSearchTerm(term);
-  
-    const filtered = presentations.filter((presentation) =>
-      presentation.students.some((student) =>
-        student.student_id.includes(term)
-      ) ||
-      presentation.examiners.some((examiner) =>
-        examiner.examiner_id.includes(term)
-      ) ||
-      presentation.department.toLowerCase().includes(term.toLowerCase()) ||
-      (presentation.venue && presentation.venue.venue_id.toLowerCase().includes(term.toLowerCase())) // Add venue filtering for location
-    );
-  
+
+    const termLower = term.toLowerCase();
+
+    const filtered = presentations.filter((presentation) => {
+      const titleMatch = presentation.title?.toLowerCase().includes(termLower);
+      const deptMatch = presentation.department?.toLowerCase().includes(termLower);
+      const venueMatch = presentation.venue?.venue_id?.toLowerCase().includes(termLower);
+
+      // Check each student
+      const studentMatch = presentation.students.some((student) =>
+        student.student_id.toLowerCase().includes(termLower)
+      );
+      // Check each examiner
+      const examinerMatch = presentation.examiners.some((examiner) =>
+        examiner.examiner_id.toLowerCase().includes(termLower)
+      );
+
+      return (
+        titleMatch ||
+        deptMatch ||
+        venueMatch ||
+        studentMatch ||
+        examinerMatch
+      );
+    });
+
     setFilteredPresentations(filtered);
   };
-  
 
+  // Filter by date
   const handleFilterDate = (e) => {
     const selectedDate = e.target.value;
     setFilterDate(selectedDate);
-  
-    // If the selected date is empty (cleared), show all presentations
+
     if (!selectedDate) {
-      setFilteredPresentations(presentations); // Reset to all presentations
+      // Show all
+      setFilteredPresentations(presentations);
     } else {
-      const filteredByDate = presentations.filter((presentation) =>
-        presentation.date === selectedDate
+      const filteredByDate = presentations.filter(
+        (presentation) => presentation.date === selectedDate
       );
       setFilteredPresentations(filteredByDate);
     }
   };
-  
 
+  // Generate PDF
   const handlePDFGeneration = () => {
+    if (filteredPresentations.length === 0) {
+      alert("No data available to generate a report.");
+      return;
+    }
+
     const doc = new jsPDF();
     doc.setFontSize(20);
     doc.text("AutoSched Presentation Report", 10, 10);
 
-    // Create a table of presentations
-    const headers = ["Title", "Date", "Department", "Time Range", "Duration", "Examiners", "Students", "Venue"]; // Add 'Venue' here
+    const headers = [
+      "Title",
+      "Date",
+      "Department",
+      "Time Range",
+      "Duration",
+      "Examiners",
+      "Students",
+      "Venue",
+    ];
+
     const rows = filteredPresentations.map((presentation) => [
-        presentation.title,
-        presentation.date,
-        presentation.department,
-        `${presentation.timeRange.startTime} - ${presentation.timeRange.endTime}`,
-        `${presentation.duration} mins`,
-        presentation.examiners.map((examiner) => examiner.examiner_id).join(", "),
-        presentation.students.map((student) => student.student_id).join(", "),
-        presentation.venue?.venue_id || "No Venue", // Access location or show fallback text if venue is unavailable
-      ]);
-      
-    // Add table
-    autoTable(doc,{
+      presentation.title,
+      presentation.date,
+      presentation.department,
+      `${presentation.timeRange.startTime} - ${presentation.timeRange.endTime}`,
+      `${presentation.duration} mins`,
+      presentation.examiners.map((examiner) => examiner.examiner_id).join(", "),
+      presentation.students.map((student) => student.student_id).join(", "),
+      presentation.venue?.venue_id || "No Venue",
+    ]);
+
+    autoTable(doc, {
       head: [headers],
       body: rows,
       startY: 30,
-      theme: 'grid',
+      theme: "grid",
     });
 
     doc.save("all_presentations_report.pdf");
@@ -115,18 +153,18 @@ const AdminViewPresentations = () => {
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
+        {/* Current time top-right */}
         <div className="absolute right-6 text-xl font-semibold text-gray-800">
-          <div>{currentTime}</div>
+          {currentTime}
         </div>
         <h1 className="text-3xl font-bold mb-6 text-center">Presentation List</h1>
 
-        {/* Search and Filter */}
+        {/* Search & Filter */}
         <div className="mb-4 flex flex-wrap justify-between items-center">
           <input
             type="text"
             className="p-2 border rounded mb-2 sm:mr-4 sm:mb-0 w-full sm:w-auto"
-            placeholder="Search by Student ID, Examiner ID, or Department"
+            placeholder="Search by Title, Dept, Student ID, Examiner ID, or Venue"
             value={searchTerm}
             onChange={handleSearch}
           />
@@ -161,46 +199,64 @@ const AdminViewPresentations = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredPresentations.map((presentation) => (
-                <tr key={presentation._id} className="border-b hover:bg-blue-50 transition-colors">
-                  <td className="px-6 py-4 text-sm">{presentation.title}</td>
-                  <td className="px-6 py-4 text-sm">{presentation.date}</td>
-                  <td className="px-6 py-4 text-sm">{presentation.department}</td>
-                  <td className="px-6 py-4 text-sm">{`${presentation.timeRange.startTime} - ${presentation.timeRange.endTime}`}</td>
-                  <td className="px-6 py-4 text-sm">{presentation.duration} mins</td>
-                  <td className="px-6 py-4 text-sm">{presentation.venue?.venue_id}</td>
+              {filteredPresentations.map((presentation) => {
+                // Check if presentation is in the past
+                const disabledUpdate = isPresentationInPast(presentation);
 
-                  <td className="px-6 py-4 text-sm">
-                    {presentation.students.map((student, index) => (
-                        <div key={index}>{student.student_id}</div>
-                    ))}
+                return (
+                  <tr
+                    key={presentation._id}
+                    className="border-b hover:bg-blue-50 transition-colors"
+                  >
+                    <td className="px-6 py-4 text-sm">{presentation.title}</td>
+                    <td className="px-6 py-4 text-sm">{presentation.date}</td>
+                    <td className="px-6 py-4 text-sm">{presentation.department}</td>
+                    <td className="px-6 py-4 text-sm">
+                      {presentation.timeRange.startTime} - {presentation.timeRange.endTime}
                     </td>
-
-                  <td className="px-6 py-4 text-sm">
-                    {presentation.examiners.map((examiner, index) => (
-                      <div key={index}>{examiner.examiner_id}</div>
-                    ))}
-                  </td>
-                  <td className="px-3 py-4 text-sm flex space-x-2">
-                   
-                    <button
-                      onClick={() => navigate(`/presentation-update/${presentation._id}`)}
-                      className="bg-blue-500 text-white py-1 px-3 rounded-lg hover:bg-blue-600 transition-colors"
-                    >
-                      Update
-                    </button>
-                    <button
-                      onClick={() => {
-                        setPresentationToDelete(presentation._id);
-                        setDeleteConfirmation(true);
-                      }}
-                      className="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600 transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    <td className="px-6 py-4 text-sm">
+                      {presentation.duration} mins
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      {presentation.venue?.venue_id || ""}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      {presentation.students.map((student, index) => (
+                        <div key={index}>{student.student_id}</div>
+                      ))}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      {presentation.examiners.map((examiner, index) => (
+                        <div key={index}>{examiner.examiner_id}</div>
+                      ))}
+                    </td>
+                    <td className="px-3 py-4 text-sm flex space-x-2">
+                      <button
+                        onClick={() =>
+                          navigate(`/presentation-update/${presentation._id}`)
+                        }
+                        className={`${
+                          disabledUpdate
+                            ? "bg-gray-400 cursor-not-allowed"
+                            : "bg-blue-500 hover:bg-blue-600"
+                        } text-white py-1 px-3 rounded-lg transition-colors`}
+                        disabled={disabledUpdate}
+                      >
+                        Update
+                      </button>
+                      <button
+                        onClick={() => {
+                          setPresentationToDelete(presentation._id);
+                          setDeleteConfirmation(true);
+                        }}
+                        className="bg-red-500 text-white py-1 px-3 rounded-lg hover:bg-red-600 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -219,7 +275,7 @@ const AdminViewPresentations = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={handleDelete}
+                  onClick={() => handleDelete()}
                   className="bg-red-500 text-white py-2 px-4 rounded-lg ml-4 hover:bg-red-600"
                 >
                   Delete

@@ -64,19 +64,21 @@ export const getExaminerById = async (req, res, next) => {
 export const updateExaminer = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, password } = req.body;
+    const { name, email, password, phone, department } = req.body;
 
-    // Find examiner to update
+    // 1) Find examiner by ID
     const examiner = await Examiner.findById(id);
     if (!examiner) {
       return res.status(404).json({ message: "Examiner not found" });
     }
 
-    // Update examiner details
-    examiner.name = name || examiner.name;
-    examiner.email = email || examiner.email;
+    // 2) Update examiner fields if provided
+    if (name) examiner.name = name;
+    if (email) examiner.email = email;
+    if (phone) examiner.phone = phone;
+    if (department) examiner.department = department;
 
-    // If a new password provided, hash it
+    // 3) If a new password is provided, hash it
     if (password) {
       const hashedPassword = await bcryptjs.hash(password, 10);
       examiner.password = hashedPassword;
@@ -84,21 +86,24 @@ export const updateExaminer = async (req, res) => {
 
     await examiner.save();
 
-    // Update the corresponding user details
+    // 4) Update corresponding user details if the user doc is found
     const user = await User.findOne({ user_id: examiner.examiner_id });
     if (user) {
-      user.username = name || user.username;
-      user.email = email || user.email;
-
+      if (name) user.username = name;
+      if (email) user.email = email;
       if (password) {
-        user.password = examiner.password;
+        user.password = examiner.password; // already hashed
       }
 
       await user.save();
     }
 
-    res.status(200).json({ message: "Examiner and user profile updated successfully", examiner });
+    res.status(200).json({
+      message: "Examiner and user profile updated successfully",
+      examiner,
+    });
   } catch (error) {
+    console.error("Error updating examiner:", error);
     res.status(500).json({ message: "Server error", error });
   }
 };

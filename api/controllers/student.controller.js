@@ -64,31 +64,34 @@ export const getStudentById = async (req, res, next) => {
 export const updateStudent = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, password } = req.body;
+    const { name, email, password, phone, department } = req.body;
 
     // Prepare an object to store fields to be updated
     const updatedFields = {};
     if (name) updatedFields.name = name;
     if (email) updatedFields.email = email;
+    // Fix: also update phone & department
+    if (phone) updatedFields.phone = phone;
+    if (department) updatedFields.department = department;
 
-    // Handle password separately by hashing it
+    // Handle password by hashing if provided
     if (password) {
       const hashedPassword = await bcryptjs.hash(password, 10);
       updatedFields.password = hashedPassword;
     }
 
-    // Update student details
+    // 1️⃣ Update student details
     const updatedStudent = await Student.findByIdAndUpdate(
       id,
       updatedFields,
       { new: true }
     );
-
     if (!updatedStudent) {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    // Update the corresponding user profile
+    // 2️⃣ Update the corresponding user profile
+    //    (Assuming your User doc doesn't store phone or department, so we skip those)
     const updatedUserFields = {};
     if (name) updatedUserFields.username = name;
     if (email) updatedUserFields.email = email;
@@ -100,8 +103,12 @@ export const updateStudent = async (req, res) => {
       { new: true }
     );
 
-    res.status(200).json({ message: "Student and user profile updated successfully", updatedStudent });
+    res.status(200).json({
+      message: "Student and user profile updated successfully",
+      updatedStudent,
+    });
   } catch (error) {
+    console.error("Error updating student:", error);
     res.status(500).json({ message: "Server error", error });
   }
 };

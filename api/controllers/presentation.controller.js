@@ -488,35 +488,34 @@ export const smartSuggestSlot = async (req, res) => {
   try {
     const { studentIds, numExaminers, duration } = req.body;
 
-    // Fetch students and determine department
+    // 1) Fetch students => determine department
     const students = await Student.find({ _id: { $in: studentIds } });
     if (students.length === 0) {
       return res.status(400).json({ message: "No valid students found" });
     }
     const department = students[0].department;
 
-    // Get all examiners from the department
+    // 2) Get examiners from department
     let departmentExaminers = await Examiner.find({ department });
-
     if (departmentExaminers.length === 0) {
       return res.status(400).json({ message: "No examiners found in this department" });
     }
 
-    // Get all venues
+    // 3) Get all venues
     const allVenues = await Venue.find();
     if (allVenues.length === 0) {
       return res.status(400).json({ message: "No venues found" });
     }
 
-    // Get all available dates (next 14 days)
+    // 4) Next 14 days
     const possibleDates = [];
     for (let i = 0; i < 14; i++) {
       const date = new Date();
       date.setDate(date.getDate() + i);
-      possibleDates.push(date.toISOString().split("T")[0]); // Format YYYY-MM-DD
+      possibleDates.push(date.toISOString().split("T")[0]); // e.g. "2025-04-10"
     }
 
-    // Find the best date with the least lectures for examiners
+    // 5) Find best date with fewest lectures
     let bestDate = null;
     let minLectures = Infinity;
 
@@ -527,7 +526,6 @@ export const smartSuggestSlot = async (req, res) => {
           "weekdays.lecturer": examiner.examiner_id,
           "weekdays.date": date,
         });
-
         if (lecturerSchedule) {
           totalLectures += lecturerSchedule.weekdays.length;
         }
@@ -543,10 +541,10 @@ export const smartSuggestSlot = async (req, res) => {
       return res.status(400).json({ message: "No suitable date found" });
     }
 
-    // Fetch existing presentations on this date
+    // 6) Fetch existing presentations on bestDate
     const existingPresentations = await Presentation.find({ date: bestDate });
 
-    // **Map examiner-to-venue for today**
+    // examinerVenueMap => which examiner is using which venue on bestDate
     const examinerVenueMap = new Map();
     const venueUsed = new Set();
 
@@ -557,7 +555,7 @@ export const smartSuggestSlot = async (req, res) => {
       });
     });
 
-    // Define possible time slots
+    // 7) Define possible time slots
     const allTimeSlots = [
       "08:00", "08:30", "09:00", "09:30",
       "10:00", "10:30", "11:00", "11:30",
@@ -566,37 +564,55 @@ export const smartSuggestSlot = async (req, res) => {
       "16:00", "16:30"
     ];
 
-    // Helper function to calculate the correct time range based on duration
+    // Helper: compute endTime from startTime + duration
     const calculateTimeRange = (startTime, duration) => {
-      const [startHours, startMinutes] = startTime.split(":").map(num => parseInt(num, 10));
-      const startDate = new Date(0, 0, 0, startHours, startMinutes);
-      const endDate = new Date(startDate.getTime() + duration * 60000); // Adding duration (in ms)
+      const [startH, startM] = startTime.split(":").map(Number);
+      const startDate = new Date(0, 0, 0, startH, startM);
+      const endDate = new Date(startDate.getTime() + duration * 60000); // add duration in ms
 
+      const format = (num) => String(num).padStart(2, "0");
       return {
-        startTime: `${startHours.toString().padStart(2, "0")}:${startMinutes.toString().padStart(2, "0")}`,
-        endTime: `${endDate.getHours().toString().padStart(2, "0")}:${endDate.getMinutes().toString().padStart(2, "0")}`
+        startTime: `${format(startDate.getHours())}:${format(startDate.getMinutes())}`,
+        endTime: `${format(endDate.getHours())}:${format(endDate.getMinutes())}`
       };
     };
 
+    // 8) If bestDate is today => skip times that are <= current local time
+    const todayString = new Date().toISOString().split("T")[0];
+    let currentHHMM = null;
+    if (bestDate === todayString) {
+      // e.g. "13:05"
+      currentHHMM = new Date().toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+
+    // 9) Try each time slot
     for (let slot of allTimeSlots) {
+      // If bestDate is today => skip slot if slot <= currentHHMM
+      if (bestDate === todayString && slot <= currentHHMM) {
+        continue;
+      }
+
       const adjustedSlot = calculateTimeRange(slot, duration);
 
-      // **Check if the time slot is available**
+      // Check if time slot is available for the day
       const isTimeAvailable = await isTimeSlotAvailable(
         bestDate,
         adjustedSlot.startTime,
         adjustedSlot.endTime,
-        [],
-        null,
+        [],       // Not specifying examiners here => or pass deptExaminers if needed
+        null,     // No specific venue => we do a more general check
         studentIds
       );
 
-      if (!isTimeAvailable) continue; // Skip if the time is already taken
+      if (!isTimeAvailable) continue; // skip if time is taken
 
       let selectedVenue = null;
       let selectedExaminers = [];
 
-      // **1️⃣ First, check if examiners are already assigned today and return the same venue**
+      // 1) First, check if examiners are already assigned a venue => keep same
       for (const examiner of departmentExaminers) {
         if (examinerVenueMap.has(examiner._id.toString())) {
           selectedVenue = examinerVenueMap.get(examiner._id.toString());
@@ -605,19 +621,19 @@ export const smartSuggestSlot = async (req, res) => {
         }
       }
 
-      // **2️⃣ If no examiner is assigned a venue, select a new venue**
+      // 2) If not enough examiners assigned => pick new ones
       if (selectedExaminers.length < numExaminers) {
-        let newExaminers = departmentExaminers.filter(
+        const newExaminers = departmentExaminers.filter(
           (ex) => !examinerVenueMap.has(ex._id.toString())
         );
-
         if (newExaminers.length >= numExaminers) {
           selectedExaminers = newExaminers.slice(0, numExaminers);
 
-          for (let venue of allVenues) {
-            if (!venueUsed.has(venue._id.toString())) {
-              selectedVenue = venue;
-              venueUsed.add(venue._id.toString());
+          // pick a new venue not used
+          for (let v of allVenues) {
+            if (!venueUsed.has(v._id.toString())) {
+              selectedVenue = v._id;
+              venueUsed.add(v._id.toString());
               break;
             }
           }
@@ -625,10 +641,12 @@ export const smartSuggestSlot = async (req, res) => {
       }
 
       if (!selectedVenue || selectedExaminers.length < numExaminers) {
-        return res.status(400).json({ message: "No suitable venue and examiners available" });
+        return res.status(400).json({
+          message: "No suitable venue and examiners available"
+        });
       }
 
-      // Fetch full venue details before returning the response
+      // fetch full venue details
       const venueDetails = await Venue.findById(selectedVenue);
 
       return res.status(200).json({
@@ -642,6 +660,7 @@ export const smartSuggestSlot = async (req, res) => {
 
     return res.status(400).json({ message: "No suitable time slots available" });
   } catch (error) {
+    console.error("Error in smartSuggestSlot:", error);
     res.status(500).json({ message: "Server error", error });
   }
 };
@@ -731,7 +750,7 @@ export const smartSuggestSlotForReschedule = async (req, res) => {
 
     // Overlap check
     const overlaps = (start1, end1, start2, end2) => {
-      // Overlap if start1 < end2 and end1 > start2
+      // Overlap if start1 < end2 && end1 > start2
       return start1 < end2 && end1 > start2;
     };
 
@@ -741,10 +760,10 @@ export const smartSuggestSlotForReschedule = async (req, res) => {
       "10:00", "10:30", "11:00", "11:30",
       "12:00", "12:30", "13:00", "13:30",
       "14:00", "14:30", "15:00", "15:30",
-      "16:00", "16:30",
+      "16:00", "16:30"
     ];
 
-    // Helper to produce an endTime from a startTime + duration
+    // Helper to produce endTime from startTime + duration
     const calculateTimeRange = (startTime, duration) => {
       const [startHours, startMinutes] = startTime.split(":").map(Number);
       const startDate = new Date(0, 0, 0, startHours, startMinutes);
@@ -758,11 +777,26 @@ export const smartSuggestSlotForReschedule = async (req, res) => {
       };
     };
 
-    // 5) Try each slot
+    // 5) If bestDate is today => skip timeslot <= current local time
+    const todayString = new Date().toISOString().split("T")[0];
+    let currentHHMM = null;
+    if (bestDate === todayString) {
+      currentHHMM = new Date().toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+
+    // 6) Try each slot
     for (let slot of allTimeSlots) {
+      // If bestDate is today => skip slot if slot <= currentHHMM
+      if (bestDate === todayString && currentHHMM && slot <= currentHHMM) {
+        continue;
+      }
+
       const { startTime, endTime } = calculateTimeRange(slot, duration);
 
-      // 5.1) Skip if overlaps with any skipRange
+      // Skip if overlaps with existingRequests
       const requestedStartMin = convertToMinutes(startTime);
       const requestedEndMin = convertToMinutes(endTime);
 
@@ -777,37 +811,36 @@ export const smartSuggestSlotForReschedule = async (req, res) => {
       }
       if (skipThisSlot) continue;
 
-      // 5.2) Check isTimeSlotAvailable for all examiners/students
+      // 6.1) Check isTimeSlotAvailable
       const isTimeAvailable = await isTimeSlotAvailable(
         bestDate,
         startTime,
         endTime,
-        examinerIds,
-        null, // We'll pick a new venue
-        studentIds
+        examinerIds, // the examiners
+        null,        // no specific venue
+        studentIds   // the students
       );
       if (!isTimeAvailable) continue;
 
-      // 5.3) If time is free, pick the first free venue
+      // 6.2) pick the first free venue
       let chosenVenue = null;
-      for (let ven of allVenues) {
-        // For simplicity, pick the first venue
-        chosenVenue = ven;
+      for (let v of allVenues) {
+        chosenVenue = v; // simply pick the first
         break;
       }
       if (!chosenVenue) continue;
 
-      // Return suggestion
+      // 6.3) Return suggestion
       return res.status(200).json({
         date: bestDate,
-        examiners: examinerIds,
-        venue: chosenVenue, // full doc
+        examiners: examinerIds, // array of examiner doc _ids
+        venue: chosenVenue,     // full doc
         department,
         timeRange: { startTime, endTime },
       });
     }
 
-    // If we exit the loop with no return => no suitable slot
+    // If we exit => no suitable time slots
     return res.status(400).json({ message: "No suitable time slots available" });
   } catch (error) {
     console.error("smartSuggestSlotForReschedule error:", error);
