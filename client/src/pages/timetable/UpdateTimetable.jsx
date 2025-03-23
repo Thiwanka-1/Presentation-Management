@@ -116,6 +116,16 @@ export default function UpdateTimetable() {
     return newErrors;
   };
 
+  const generateTimeSlots = () => {
+    const slots = [];
+    for (let hour = 8; hour <= 18; hour++) {
+      const formatted = `${hour.toString().padStart(2, "0")}:00`;
+      slots.push(formatted);
+    }
+    return slots;
+  };
+  
+
   // Submit updated data
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -160,8 +170,38 @@ export default function UpdateTimetable() {
 
           {day.lectures.map((lecture, lectureIndex) => (
             <div key={lectureIndex} className="flex gap-2 items-center mb-3">
-              <input type="time" className="p-2 border rounded-lg w-1/6" value={lecture.start_time} onChange={(e) => handleLectureChange(dayIndex, lectureIndex, "start_time", e.target.value)} />
-              <input type="time" className="p-2 border rounded-lg w-1/6" value={lecture.end_time} onChange={(e) => handleLectureChange(dayIndex, lectureIndex, "end_time", e.target.value)} />
+              {/* Start Time Dropdown */}
+<select
+  className="p-2 border rounded-lg w-1/6"
+  value={lecture.start_time}
+  onChange={(e) =>
+    handleLectureChange(dayIndex, lectureIndex, "start_time", e.target.value)
+  }
+>
+  <option value="">Start Time</option>
+  {generateTimeSlots().map((time) => (
+    <option key={time} value={time}>
+      {time}
+    </option>
+  ))}
+</select>
+
+{/* End Time Dropdown */}
+<select
+  className="p-2 border rounded-lg w-1/6"
+  value={lecture.end_time}
+  onChange={(e) =>
+    handleLectureChange(dayIndex, lectureIndex, "end_time", e.target.value)
+  }
+>
+  <option value="">End Time</option>
+  {generateTimeSlots().map((time) => (
+    <option key={time} value={time}>
+      {time}
+    </option>
+  ))}
+</select>
+
               {/* Module Dropdown */}
     <select 
       className="p-2 border rounded-lg w-1/4" 
