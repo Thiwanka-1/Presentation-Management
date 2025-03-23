@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { useSelector } from "react-redux";
 import { jsPDF } from "jspdf";
+import  autoTable from "jspdf-autotable";
+
 
 const ExaminerTimetable = () => {
   const [timetables, setTimetables] = useState([]);
@@ -62,7 +64,7 @@ const ExaminerTimetable = () => {
       });
     });
 
-    doc.autoTable({
+    autoTable(doc,{
       head: [headers],
       body: rows,
       startY: 30,

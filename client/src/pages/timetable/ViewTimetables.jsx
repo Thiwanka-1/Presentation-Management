@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import  autoTable from "jspdf-autotable";
 
 export default function TimetableManagement() {
   const [timetables, setTimetables] = useState([]);
@@ -63,7 +63,7 @@ export default function TimetableManagement() {
       });
     });
   
-    doc.autoTable({
+    autoTable(doc,{
       head: [["Day", "Start Time", "End Time", "Module", "Lecturer", "Venue"]],
       body: tableData,
       startY: 20,

@@ -1,16 +1,12 @@
 import { useState, useEffect } from "react";
-import { useSelector } from "react-redux"; // or import from your auth if you have
+import { useSelector } from "react-redux";
 import axios from "axios";
 import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable"; // Ensure you've installed jspdf-autotable
-// npm install jspdf jspdf-autotable
+import autoTable from "jspdf-autotable";
 
 const ResceduledLectures = () => {
-  // If you store the logged-in lecturer's ID in Redux or Context, retrieve it here.
-  // For example, using Redux:
   const { currentUser } = useSelector((state) => state.user);
-  // `lecturerId` = examiner's user_id (NOT the ObjectId)
-  const lecturerId = currentUser?.user_id; 
+  const lecturerId = currentUser?.user_id; // examiner's user_id (NOT ObjectId)
 
   const [rescheduledLectures, setRescheduledLectures] = useState([]);
   const [filteredLectures, setFilteredLectures] = useState([]);
@@ -21,6 +17,8 @@ const ResceduledLectures = () => {
   useEffect(() => {
     if (lecturerId) {
       fetchRescheduledLectures();
+    } else {
+      setLoading(false); // No lecturer ID => no fetch
     }
   }, [lecturerId]);
 
@@ -41,19 +39,19 @@ const ResceduledLectures = () => {
     const term = e.target.value.toLowerCase();
     setSearchTerm(term);
 
-    // Filter across original_date, rescheduled_date, and lectures (module_code, group_id, venue_id)
+    // Filter across original_date, rescheduled_date, and each lecture's module_code, group_id, venue_id
     const filtered = rescheduledLectures.filter((record) => {
-      const originalDateMatch = record.original_date.toLowerCase().includes(term);
-      const rescheduledDateMatch = record.rescheduled_date.toLowerCase().includes(term);
+      const origDate = record.original_date.toLowerCase().includes(term);
+      const rescDate = record.rescheduled_date.toLowerCase().includes(term);
 
-      // Check each lecture within the record
+      // Check each lecture
       const lectureMatch = record.lectures.some((lec) =>
         lec.module_code.toLowerCase().includes(term) ||
         lec.group_id.toLowerCase().includes(term) ||
         lec.venue_id.toLowerCase().includes(term)
       );
 
-      return originalDateMatch || rescheduledDateMatch || lectureMatch;
+      return origDate || rescDate || lectureMatch;
     });
 
     setFilteredLectures(filtered);
@@ -73,7 +71,6 @@ const ResceduledLectures = () => {
     const headers = ["Original Date", "Rescheduled Date", "Module Code", "Group", "Venue", "Time Range"];
     const rows = [];
 
-    // Flatten each record's lectures into the rows
     filteredLectures.forEach((record) => {
       const { original_date, rescheduled_date, lectures } = record;
       lectures.forEach((lec) => {
@@ -88,7 +85,7 @@ const ResceduledLectures = () => {
       });
     });
 
-    autoTable(doc,{
+    autoTable(doc, {
       head: [headers],
       body: rows,
       startY: 20,
@@ -98,15 +95,20 @@ const ResceduledLectures = () => {
     doc.save("rescheduled_lectures_report.pdf");
   };
 
-  if (loading) return <div className="text-center text-lg font-semibold">Loading...</div>;
-  if (error) return <div className="text-red-500 text-center">{error}</div>;
+  if (loading) {
+    return <div className="text-center text-lg font-semibold">Loading...</div>;
+  }
 
+  // We won't "return" on error. We'll show a small error message but keep the page structure.
   return (
     <div className="p-6 min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6 text-center">My Rescheduled Lectures</h1>
+        <h1 className="text-3xl font-bold mb-4 text-center">My Rescheduled Lectures</h1>
 
-        {/* Search & PDF Report Buttons */}
+        {/* Show error if any */}
+        {error && <p className="text-red-500 text-center mb-4">{error}</p>}
+
+        {/* Search & PDF Buttons */}
         <div className="flex flex-wrap justify-between items-center mb-4">
           <input
             type="text"
@@ -123,10 +125,29 @@ const ResceduledLectures = () => {
           </button>
         </div>
 
-        {/* Display Rescheduled Lectures */}
+        {/* If no records at all, show a table with a single row. */}
         {filteredLectures.length === 0 ? (
-          <div className="text-center text-gray-600">No rescheduled lectures found.</div>
+          <div className="bg-white shadow-md rounded-lg p-4">
+            <table className="w-full border-collapse border border-gray-300">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="border border-gray-300 px-4 py-2">Module Code</th>
+                  <th className="border border-gray-300 px-4 py-2">Group</th>
+                  <th className="border border-gray-300 px-4 py-2">Venue</th>
+                  <th className="border border-gray-300 px-4 py-2">Time Range</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colSpan="4" className="text-center text-gray-600 py-4">
+                    No rescheduled lectures found.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         ) : (
+          // If we have records, display each record
           filteredLectures.map((record) => (
             <div key={record._id} className="bg-white shadow-md rounded-lg p-4 mb-4">
               <div className="text-lg font-semibold text-gray-700 mb-2">

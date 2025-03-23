@@ -3,6 +3,7 @@ import axios from "axios";
 import { useSelector } from "react-redux";
 import { jsPDF } from "jspdf";
 import { useNavigate } from "react-router-dom";
+import  autoTable from "jspdf-autotable";
 
 const ExaminerViewPresentations = () => {
   const navigate = useNavigate();
@@ -103,7 +104,7 @@ const ExaminerViewPresentations = () => {
       presentation.venue?.venue_id || "No Venue",
     ]);
 
-    doc.autoTable({
+    autoTable(doc,{
       head: [headers],
       body: rows,
       startY: 30,

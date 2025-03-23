@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import  autoTable from "jspdf-autotable";
 import logo from '../components/logo2.png'; // Import your logo
 import axios from 'axios'; // Ensure you have axios imported
 
@@ -88,7 +88,7 @@ export default function ManageUsers() {
       tableRows.push(userData);
     });
 
-    doc.autoTable({
+    autoTable(doc,{
       startY: 50, // Position the table below the header
       head: [tableColumn],
       body: tableRows,

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { jsPDF } from "jspdf";
 import { useNavigate } from "react-router-dom";
+import  autoTable from "jspdf-autotable";
 
 const AdminViewVenues = () => {
   const navigate = useNavigate();
@@ -72,7 +73,7 @@ const AdminViewVenues = () => {
       ]);
       
     // Add table
-    doc.autoTable({
+    autoTable(doc,{
       head: [headers],
       body: rows,
       startY: 30,

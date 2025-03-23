@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { jsPDF } from "jspdf";
 import { useNavigate } from "react-router-dom";
+import  autoTable from "jspdf-autotable";
+
 
 const AdminViewExaminers = () => {
   const navigate = useNavigate();
@@ -61,7 +63,7 @@ const AdminViewExaminers = () => {
       examiner.department,
       new Date(examiner.created_at).toLocaleDateString(),
     ]);
-    doc.autoTable({
+    autoTable(doc,{
       head: [headers],
       body: rows,
       startY: 30,

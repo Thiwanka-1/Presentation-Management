@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 const ExaminerRescheduleRequests = () => {
   const [requests, setRequests] = useState([]);
@@ -19,7 +19,7 @@ const ExaminerRescheduleRequests = () => {
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      // Adjust your endpoint if needed. 
+      // Adjust your endpoint if needed.
       // Example: /api/reschedule/my-requests or /api/presentations/ex-req
       const res = await axios.get("/api/presentations/ex-req");
       setRequests(res.data);
@@ -64,7 +64,6 @@ const ExaminerRescheduleRequests = () => {
     doc.setFontSize(18);
     doc.text("My Reschedule Requests Report", 10, 10);
 
-    // Example columns
     const headers = ["Date", "Time Range", "Venue", "Reason", "Status"];
     const rows = [];
 
@@ -79,7 +78,7 @@ const ExaminerRescheduleRequests = () => {
       rows.push([date, timeRange, venueId, reason, status]);
     });
 
-    doc.autoTable({
+    autoTable(doc, {
       head: [headers],
       body: rows,
       startY: 20,
@@ -89,21 +88,23 @@ const ExaminerRescheduleRequests = () => {
     doc.save("my_reschedule_requests_report.pdf");
   };
 
-  // Loading / Error / No data states
+  // Loading
   if (loading) {
     return <div className="text-center text-lg font-semibold">Loading...</div>;
   }
-  if (error) {
-    return <div className="text-red-500 text-center">{error}</div>;
-  }
-  if (!requests || requests.length === 0) {
-    return <div className="text-gray-600 text-center">No reschedule requests found.</div>;
-  }
 
+  // Render the page structure regardless of error or empty data
   return (
     <div className="p-6 min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold mb-6 text-center">My Reschedule Requests</h1>
+
+        {/* If there's an error, show a small message but continue */}
+        {error && (
+          <p className="text-red-500 text-center mb-4">
+            {error}
+          </p>
+        )}
 
         {/* Search & PDF Buttons */}
         <div className="flex flex-wrap justify-between items-center mb-4">
@@ -122,7 +123,7 @@ const ExaminerRescheduleRequests = () => {
           </button>
         </div>
 
-        {/* Requests Table */}
+        {/* Table */}
         <div className="overflow-x-auto bg-white shadow-md rounded-lg p-4">
           <table className="w-full border-collapse border border-gray-300">
             <thead>
@@ -141,7 +142,6 @@ const ExaminerRescheduleRequests = () => {
                   const date = req.requestedSlot.date;
                   const startTime = req.requestedSlot.timeRange.startTime;
                   const endTime = req.requestedSlot.timeRange.endTime;
-                  // Get friendly venue_id
                   const venueId = req.presentation?.venue?.venue_id || "N/A";
                   const reason = req.reason;
                   const status = req.status;
@@ -156,22 +156,16 @@ const ExaminerRescheduleRequests = () => {
                       <td className="border border-gray-300 px-4 py-2">
                         {startTime} - {endTime}
                       </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        {venueId}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        {reason}
-                      </td>
-                      <td className="border border-gray-300 px-4 py-2">
-                        {status}
-                      </td>
+                      <td className="border border-gray-300 px-4 py-2">{venueId}</td>
+                      <td className="border border-gray-300 px-4 py-2">{reason}</td>
+                      <td className="border border-gray-300 px-4 py-2">{status}</td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
                   <td colSpan="6" className="text-center px-4 py-2 border-b">
-                    No matching requests found.
+                    No reschedule requests found.
                   </td>
                 </tr>
               )}
