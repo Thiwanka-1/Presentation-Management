@@ -80,7 +80,7 @@ export default function UpdateStudent() {
     try {
       await axios.put(`/api/students/update-std/${id}`, formData);
       alert("Student updated successfully!");
-      navigate("/admin-students-view"); // Adjust your redirect route
+      navigate("/admin-std-view"); // Adjust your redirect route
     } catch (error) {
       console.error("Error updating student", error);
       alert("Update failed. Please try again.");
