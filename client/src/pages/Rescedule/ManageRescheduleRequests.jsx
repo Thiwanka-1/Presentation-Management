@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { jsPDF } from "jspdf";
-import  autoTable from "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 const ManageRescheduleRequests = () => {
   const [requests, setRequests] = useState([]);
@@ -9,7 +9,9 @@ const ManageRescheduleRequests = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-
+  const [isApproveLoading, setIsApproveLoading] = useState(false);
+  const [isRejectLoading, setIsRejectLoading] = useState(false);
+  
   // For success messages
   const [successMessage, setSuccessMessage] = useState(null);
 
@@ -18,14 +20,15 @@ const ManageRescheduleRequests = () => {
   const [freeSlots, setFreeSlots] = useState([]); // All returned free slots
   const [isSlotAvailable, setIsSlotAvailable] = useState(false);
 
-  // Modals
+  // Popup (modal) states
   const [slotModalOpen, setSlotModalOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // Loading for Approve/Reject
 
   useEffect(() => {
     fetchRequests();
   }, []);
 
-  // 1️⃣ Fetch All Requests
+  // 1) Fetch All Requests
   const fetchRequests = async () => {
     try {
       setLoading(true);
@@ -39,7 +42,7 @@ const ManageRescheduleRequests = () => {
     }
   };
 
-  // 2️⃣ Search Filter
+  // 2) Search Filter
   const handleSearch = (e) => {
     const term = e.target.value.toLowerCase();
     setSearchTerm(term);
@@ -49,7 +52,9 @@ const ManageRescheduleRequests = () => {
       const date = req.requestedSlot?.date?.toLowerCase() || "";
       const reason = req.reason?.toLowerCase() || "";
       const status = req.status?.toLowerCase() || "";
-      const examinerId = req.requestedBy?.userId?.examiner_id?.toLowerCase() || "";
+      const examinerId =
+        req.requestedBy?.userId?.examiner_id?.toLowerCase() || "";
+
       return (
         title.includes(term) ||
         date.includes(term) ||
@@ -62,7 +67,7 @@ const ManageRescheduleRequests = () => {
     setFilteredRequests(filtered);
   };
 
-  // 3️⃣ Generate PDF Report
+  // 3) Generate PDF Report
   const handlePDFGeneration = () => {
     if (filteredRequests.length === 0) {
       alert("No data available to generate a report.");
@@ -104,7 +109,7 @@ const ManageRescheduleRequests = () => {
       ]);
     });
 
-    autoTable(doc,{
+    autoTable(doc, {
       head: [headers],
       body: rows,
       startY: 20,
@@ -114,15 +119,20 @@ const ManageRescheduleRequests = () => {
     doc.save("reschedule_requests_report.pdf");
   };
 
-  // 4️⃣ Delete Old Rejected
+  // 4) Delete Old Rejected
   const handleDeleteOldRejected = async () => {
-    if (!window.confirm("Are you sure you want to delete old rejected requests?")) return;
+    if (
+      !window.confirm("Are you sure you want to delete old rejected requests?")
+    )
+      return;
     try {
       await axios.delete("/api/presentations/delete-old-req");
       alert("Old rejected requests deleted successfully.");
       fetchRequests(); // Refresh
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete old rejected requests.");
+      alert(
+        err.response?.data?.message || "Failed to delete old rejected requests."
+      );
     }
   };
 
@@ -132,17 +142,20 @@ const ManageRescheduleRequests = () => {
     return hh * 60 + mm;
   };
 
-  // 5️⃣ Check Availability
+  // 5) Check Availability
   const handleCheckAvailability = async (req) => {
     try {
       setError(null);
       setSuccessMessage(null);
       setFreeSlots([]);
       setCurrentRequest(req);
+      setIsProcessing(false);
 
       const department = req.presentation?.department;
       const students = (req.presentation?.students || []).map((s) => s.student_id);
-      const examiners = (req.presentation?.examiners || []).map((ex) => ex.examiner_id);
+      const examiners = (req.presentation?.examiners || []).map(
+        (ex) => ex.examiner_id
+      );
       const date = req.requestedSlot?.date;
       const duration = req.presentation?.duration || 30;
       const venueId = req.requestedSlot?.venue?.venue_id || "";
@@ -183,58 +196,76 @@ const ManageRescheduleRequests = () => {
             break;
           }
         }
-
         setIsSlotAvailable(foundSlot);
       } else {
         // If data is not an array, we treat it as no free slots
         setFreeSlots([]);
         setIsSlotAvailable(false);
       }
+
       setSlotModalOpen(true);
     } catch (err) {
       // If error => no free slots
-      const msg = err.response?.data?.message || err.message || "Check availability failed.";
+      const msg =
+        err.response?.data?.message ||
+        err.message ||
+        "Check availability failed.";
       setError(msg);
       setFreeSlots([]);
       setIsSlotAvailable(false);
       setSlotModalOpen(true);
+      setIsProcessing(false);
     }
   };
 
-  // 6️⃣ Approve/Reject Action
+  // 6) Approve/Reject Action
   const handleAction = async (requestId, action) => {
     try {
+      if (action === "Approve") {
+        setIsApproveLoading(true);
+      } else {
+        setIsRejectLoading(true);
+      }
+  
       const res = await axios.post("/api/presentations/req-approve", {
         requestId,
         action,
       });
       setSuccessMessage(res.data.message);
-
+  
+      // Cleanup
       setSlotModalOpen(false);
       setCurrentRequest(null);
       setFreeSlots([]);
       setError(null);
-
-      fetchRequests(); // Refresh
+  
+      // Refresh the requests
+      fetchRequests();
     } catch (err) {
       alert(err.response?.data?.message || "Action failed");
+    } finally {
+      if (action === "Approve") {
+        setIsApproveLoading(false);
+      } else {
+        setIsRejectLoading(false);
+      }
     }
   };
+  
 
   if (loading) {
     return <div className="text-center text-lg font-semibold">Loading...</div>;
-  }
-  if (error && requests.length === 0) {
-    return <div className="text-red-500 text-center">{error}</div>;
   }
 
   return (
     <div className="p-6 min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6 text-center">Reschedule Requests</h1>
+        <h1 className="text-3xl font-bold mb-6 text-center">
+          Reschedule Requests
+        </h1>
 
         {/* Top Bar */}
-        <div className="flex flex-wrap justify-between items-center mb-4">
+        <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
           <input
             type="text"
             className="p-2 border rounded-md w-full sm:w-auto"
@@ -242,7 +273,7 @@ const ManageRescheduleRequests = () => {
             value={searchTerm}
             onChange={handleSearch}
           />
-          <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={handlePDFGeneration}
               className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md"
@@ -267,10 +298,18 @@ const ManageRescheduleRequests = () => {
           <table className="w-full border-collapse border border-gray-300">
             <thead>
               <tr className="bg-gray-100">
-                <th className="border border-gray-300 px-4 py-2">Presentation</th>
-                <th className="border border-gray-300 px-4 py-2">Requested By</th>
-                <th className="border border-gray-300 px-4 py-2">Requested Date</th>
-                <th className="border border-gray-300 px-4 py-2">Requested Time</th>
+                <th className="border border-gray-300 px-4 py-2">
+                  Presentation
+                </th>
+                <th className="border border-gray-300 px-4 py-2">
+                  Requested By
+                </th>
+                <th className="border border-gray-300 px-4 py-2">
+                  Requested Date
+                </th>
+                <th className="border border-gray-300 px-4 py-2">
+                  Requested Time
+                </th>
                 <th className="border border-gray-300 px-4 py-2">Venue</th>
                 <th className="border border-gray-300 px-4 py-2">Reason</th>
                 <th className="border border-gray-300 px-4 py-2">Status</th>
@@ -285,21 +324,39 @@ const ManageRescheduleRequests = () => {
                   const date = req.requestedSlot.date;
                   const start = req.requestedSlot.timeRange?.startTime || "--:--";
                   const end = req.requestedSlot.timeRange?.endTime || "--:--";
-                  const venueId = req.requestedSlot.venue?.venue_id || req.requestedSlot.venue || "N/A";
+                  const venueId =
+                    req.requestedSlot.venue?.venue_id ||
+                    req.requestedSlot.venue ||
+                    "N/A";
                   const reason = req.reason;
                   const status = req.status;
 
                   return (
-                    <tr key={req._id} className="text-center bg-white hover:bg-gray-50">
-                      <td className="border border-gray-300 px-4 py-2">{presentationTitle}</td>
-                      <td className="border border-gray-300 px-4 py-2">{examinerId}</td>
-                      <td className="border border-gray-300 px-4 py-2">{date}</td>
+                    <tr
+                      key={req._id}
+                      className="text-center bg-white hover:bg-gray-50"
+                    >
+                      <td className="border border-gray-300 px-4 py-2">
+                        {presentationTitle}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        {examinerId}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        {date}
+                      </td>
                       <td className="border border-gray-300 px-4 py-2">
                         {start} - {end}
                       </td>
-                      <td className="border border-gray-300 px-4 py-2">{venueId}</td>
-                      <td className="border border-gray-300 px-4 py-2">{reason}</td>
-                      <td className="border border-gray-300 px-4 py-2">{status}</td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        {venueId}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        {reason}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2">
+                        {status}
+                      </td>
                       <td className="border border-gray-300 px-4 py-2 space-x-2">
                         {status === "Pending" ? (
                           <button
@@ -329,69 +386,110 @@ const ManageRescheduleRequests = () => {
 
       {/* AVAILABILITY MODAL */}
       {slotModalOpen && currentRequest && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-md shadow-md max-w-md w-full relative">
-            {isSlotAvailable ? (
-              <>
-                <h2 className="text-xl font-bold mb-4 text-green-700">Time Slot Available</h2>
-                <p className="mb-2 text-gray-700">These free slots are available:</p>
-                <ul className="mb-4 list-disc list-inside">
-                  {freeSlots.map((slot, idx) => (
-                    <li key={idx}>{slot.timeSlot}</li>
-                  ))}
-                </ul>
-                <p className="mb-4 text-gray-700">
-                  Approve or Reject this request?
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleAction(currentRequest._id, "Approve")}
-                    className="bg-green-600 text-white px-4 py-2 rounded"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => handleAction(currentRequest._id, "Reject")}
-                    className="bg-red-500 text-white px-4 py-2 rounded"
-                  >
-                    Reject
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <h2 className="text-xl font-bold mb-4 text-red-700">Time Slot NOT Available</h2>
-                {error && (
-                  <p className="text-red-500 mb-4">Error: {error}</p>
-                )}
-                <p className="mb-4 text-gray-700">
-                  The requested time slot is unavailable. You can only reject this request.
-                </p>
-                <button
-                  onClick={() => handleAction(currentRequest._id, "Reject")}
-                  className="bg-red-500 text-white px-4 py-2 rounded"
-                >
-                  Reject
-                </button>
-              </>
-            )}
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
+    <div className="bg-white w-full max-w-md rounded-md shadow-lg p-6 relative">
+      {/* Close button */}
+      <button
+        onClick={() => {
+          setSlotModalOpen(false);
+          setError(null);
+          setFreeSlots([]);
+          setIsSlotAvailable(false);
+          setCurrentRequest(null);
+          setIsApproveLoading(false);
+          setIsRejectLoading(false);
+        }}
+        className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-xl"
+      >
+        &times;
+      </button>
 
-            {/* Close Modal Button */}
+      {/* Header */}
+      <div className="mb-4">
+        <h2 className="text-2xl font-semibold text-center">
+          {isSlotAvailable ? "Time Slot Available" : "Time Slot NOT Available"}
+        </h2>
+      </div>
+
+      {/* Body */}
+      <div className="mb-4 max-h-64 overflow-auto">
+        {isSlotAvailable ? (
+          <>
+            <p className="mb-2 text-gray-700 text-center">
+              These free slots are available:
+            </p>
+            <ul className="mb-4 list-disc list-inside text-gray-700 ml-28">
+              {freeSlots.map((slot, idx) => (
+                <li key={idx}>{slot.timeSlot}</li>
+              ))}
+            </ul>
+            <p className="text-center text-gray-700">
+              Approve or Reject this request?
+            </p>
+          </>
+        ) : (
+          <>
+            {error && (
+              <p className="text-red-500 text-center mb-4">Error: {error}</p>
+            )}
+            <p className="mb-4 text-gray-700 text-center">
+              The requested time slot is unavailable. You can only reject this
+              request.
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* Footer / Buttons */}
+      <div className="flex justify-center gap-4 mt-4">
+        {isSlotAvailable ? (
+          <>
+            {/* Approve Button */}
             <button
-              onClick={() => {
-                setSlotModalOpen(false);
-                setError(null);
-                setFreeSlots([]);
-                setIsSlotAvailable(false);
-                setCurrentRequest(null);
-              }}
-              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+              onClick={() => !isApproveLoading && handleAction(currentRequest._id, "Approve")}
+              disabled={isApproveLoading}
+              className={`${
+                isApproveLoading
+                  ? "bg-green-400 cursor-not-allowed"
+                  : "bg-green-600 hover:bg-green-700"
+              } text-white px-6 py-2 rounded-md font-semibold transition`}
             >
-              ✕
+              {isApproveLoading ? "Processing..." : "Approve"}
             </button>
-          </div>
-        </div>
-      )}
+
+            {/* Reject Button */}
+            <button
+              onClick={() => !isRejectLoading && handleAction(currentRequest._id, "Reject")}
+              disabled={isRejectLoading}
+              className={`${
+                isRejectLoading
+                  ? "bg-red-400 cursor-not-allowed"
+                  : "bg-red-500 hover:bg-red-600"
+              } text-white px-6 py-2 rounded-md font-semibold transition`}
+            >
+              {isRejectLoading ? "Processing..." : "Reject"}
+            </button>
+          </>
+        ) : (
+          // Only Reject if not available
+          <button
+            onClick={() => !isRejectLoading && handleAction(currentRequest._id, "Reject")}
+            disabled={isRejectLoading}
+            className={`${
+              isRejectLoading
+                ? "bg-red-400 cursor-not-allowed"
+                : "bg-red-500 hover:bg-red-600"
+            } text-white px-6 py-2 rounded-md font-semibold transition`}
+          >
+            {isRejectLoading ? "Processing..." : "Reject"}
+          </button>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
+
     </div>
   );
 };

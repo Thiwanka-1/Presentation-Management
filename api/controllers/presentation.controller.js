@@ -1278,3 +1278,59 @@ export const deleteOldRejectedRequests = async (req, res) => {
     return res.status(500).json({ message: "Server error", error });
   }
 };
+
+/**
+ * Delete all 'Approved' (accepted) requests for the logged-in examiner.
+ */
+export const deleteAllApprovedRequestsForExaminer = async (req, res) => {
+  try {
+    // 1) Ensure user is examiner
+    if (!req.user || !req.user.id || req.user.role !== "examiner") {
+      return res.status(401).json({ message: "Unauthorized request: Not an examiner or not logged in." });
+    }
+
+    const examinerId = req.user.id;
+
+    // 2) Delete all requests with "status" = "Approved" for this examiner
+    const result = await RescheduleRequest.deleteMany({
+      "requestedBy.userId": examinerId,
+      status: "Approved",
+    });
+
+    return res.status(200).json({
+      message: `All approved requests deleted successfully for examiner ${examinerId}.`,
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Error deleting all approved requests for examiner:", error);
+    return res.status(500).json({ message: "Server error", error });
+  }
+};
+
+/**
+ * Delete all 'Rejected' requests for the logged-in examiner.
+ */
+export const deleteAllRejectedRequestsForExaminer = async (req, res) => {
+  try {
+    // 1) Ensure user is examiner
+    if (!req.user || !req.user.id || req.user.role !== "examiner") {
+      return res.status(401).json({ message: "Unauthorized request: Not an examiner or not logged in." });
+    }
+
+    const examinerId = req.user.id;
+
+    // 2) Delete all requests with "status" = "Rejected" for this examiner
+    const result = await RescheduleRequest.deleteMany({
+      "requestedBy.userId": examinerId,
+      status: "Rejected",
+    });
+
+    return res.status(200).json({
+      message: `All rejected requests deleted successfully for examiner ${examinerId}.`,
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Error deleting all rejected requests for examiner:", error);
+    return res.status(500).json({ message: "Server error", error });
+  }
+};

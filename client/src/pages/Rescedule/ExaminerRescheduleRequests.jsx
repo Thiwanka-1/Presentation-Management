@@ -70,7 +70,6 @@ const ExaminerRescheduleRequests = () => {
     filteredRequests.forEach((req) => {
       const date = req.requestedSlot.date;
       const timeRange = `${req.requestedSlot.timeRange.startTime} - ${req.requestedSlot.timeRange.endTime}`;
-      // Use the "venue_id" from request.presentation.venue
       const venueId = req.presentation?.venue?.venue_id || "N/A";
       const reason = req.reason;
       const status = req.status;
@@ -88,12 +87,37 @@ const ExaminerRescheduleRequests = () => {
     doc.save("my_reschedule_requests_report.pdf");
   };
 
+  // 4️⃣ Delete All Approved
+  const handleDeleteApproved = async () => {
+    if (window.confirm("Are you sure you want to delete ALL Approved requests?")) {
+      try {
+        await axios.delete("/api/presentations/delete-accepted");
+        // Refresh
+        fetchRequests();
+      } catch (err) {
+        alert(err.response?.data?.message || "Failed to delete approved requests");
+      }
+    }
+  };
+
+  // 5️⃣ Delete All Rejected
+  const handleDeleteRejected = async () => {
+    if (window.confirm("Are you sure you want to delete ALL Rejected requests?")) {
+      try {
+        await axios.delete("/api/presentations/delete-rejected");
+        // Refresh
+        fetchRequests();
+      } catch (err) {
+        alert(err.response?.data?.message || "Failed to delete rejected requests");
+      }
+    }
+  };
+
   // Loading
   if (loading) {
     return <div className="text-center text-lg font-semibold">Loading...</div>;
   }
 
-  // Render the page structure regardless of error or empty data
   return (
     <div className="p-6 min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto">
@@ -106,8 +130,8 @@ const ExaminerRescheduleRequests = () => {
           </p>
         )}
 
-        {/* Search & PDF Buttons */}
-        <div className="flex flex-wrap justify-between items-center mb-4">
+        {/* Search & PDF Buttons + Delete Buttons */}
+        <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
           <input
             type="text"
             className="p-2 border rounded-md w-full sm:w-auto"
@@ -115,12 +139,26 @@ const ExaminerRescheduleRequests = () => {
             value={searchTerm}
             onChange={handleSearch}
           />
-          <button
-            onClick={handlePDFGeneration}
-            className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md sm:ml-4 mt-2 sm:mt-0"
-          >
-            Generate Report (PDF)
-          </button>
+          <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
+            <button
+              onClick={handlePDFGeneration}
+              className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md"
+            >
+              Generate Report (PDF)
+            </button>
+            <button
+              onClick={handleDeleteApproved}
+              className="bg-green-600 hover:bg-green-700 text-white p-2 rounded-md"
+            >
+              Delete All Approved
+            </button>
+            <button
+              onClick={handleDeleteRejected}
+              className="bg-red-600 hover:bg-red-700 text-white p-2 rounded-md"
+            >
+              Delete All Rejected
+            </button>
+          </div>
         </div>
 
         {/* Table */}
