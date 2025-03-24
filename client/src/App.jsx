@@ -57,6 +57,11 @@ export default function App() {
 
       <Route element={<PrivateRoute />}>
 
+      </Route>
+
+      <Route element={<PrivateRoute adminOnly={true} />}>
+        <Route path="/manage-users" element={<ManageUsers />} /> {/* done */}
+        <Route path='/admin-profile' element={<AdminProfile />} /> {/* done */}
         <Route path = "/add-std" element = {<AddStudent />} /> {/* done */}
         <Route path = "/add-ex" element = {<AddExaminer />} /> {/* done */}
         <Route path = "/add-ven" element = {<AddVenue />} /> {/* done */}
@@ -70,16 +75,9 @@ export default function App() {
         <Route path = "/venue-update/:id" element = {<UpdateVenue />} /> {/* done */}
 
         <Route path = "/presentation-update/:id" element = {<UpdatePresentation />} /> {/* done */}
-
-        <Route path = "/ex-pres-view" element = {<ExaminerViewPresentations />} />  {/* done */}
-        <Route path = "/std-pres-view" element = {<StudentViewPresentations />} />       {/* done */}
-
         <Route path = "/add-timetable" element = {<AddTimetable />} /> {/* done */}
         <Route path = "/view-timetables" element = {<ViewTimetables />} /> {/* done */}
         <Route path = "/update-timetable/:id" element = {<UpdateTimetable />} /> {/* done */}
-        <Route path = "/student-timetable" element = {<StudentTimetable />} /> {/* done */}
-        <Route path = "/examiner-timetable" element = {<ExaminerTimetable />} /> {/* done */}
-
 
         <Route path = "/add-group" element = {<AddStudentGroup />} /> {/* done */}
         <Route path = "/update-group/:id" element = {<UpdateStudentGroup />} /> {/* done */}
@@ -88,41 +86,29 @@ export default function App() {
         <Route path = "/add-module" element = {<AddModule />} /> {/* done */}
         <Route path = "/view-modules" element = {<ViewModules />} /> {/* done */}
         <Route path = "/update-module/:id" element = {<UpdateModule />} /> {/* done */}
-
-        <Route path = "/rescheduled-lectures" element = {<ResceduledLectures />} /> {/* done */}
-
-        <Route path = "/reschedule-request/:presentationId" element = {<RescheduleRequestForm />} /> {/* done */}
-
-        <Route path = "/reschedule-req" element = {<ManageRescheduleRequests />} /> {/* done */}
-
-        <Route path = "/examiner-req" element = {<ExaminerRescheduleRequests />} /> {/* done */}
-
+       
         <Route path="/examiner-update/:id" element={<UpdateExaminer />} />
-
         <Route path="/student-update/:id" element={<UpdateStudent />} />
-      </Route>
-
-      <Route element={<PrivateRoute adminOnly={true} />}>
-        <Route path="/manage-users" element={<ManageUsers />} /> {/* done */}
-        <Route path='/admin-profile' element={<AdminProfile />} /> {/* done */}
-
-        
+        <Route path = "/reschedule-req" element = {<ManageRescheduleRequests />} /> {/* done */}
 
       </Route>
 
       <Route element={<PrivateRoute studentOnly={true} />}>
         <Route path = "/student-profile" element = {<StudentProfile />} /> {/* done */}
-
-
-        
+        <Route path = "/std-pres-view" element = {<StudentViewPresentations />} />       {/* done */}
+        <Route path = "/student-timetable" element = {<StudentTimetable />} /> {/* done */}
 
       </Route>
 
       <Route element={<PrivateRoute examinerOnly={true} />}>
         
         <Route path = "/profile" element = {<ExaminerProfile />} /> {/* done */}
+        <Route path = "/ex-pres-view" element = {<ExaminerViewPresentations />} />  {/* done */}
+        <Route path = "/examiner-timetable" element = {<ExaminerTimetable />} /> {/* done */}
+        <Route path = "/examiner-req" element = {<ExaminerRescheduleRequests />} /> {/* done */}
+        <Route path = "/rescheduled-lectures" element = {<ResceduledLectures />} /> {/* done */}
+        <Route path = "/reschedule-request/:presentationId" element = {<RescheduleRequestForm />} /> {/* done */}
 
-        
 
       </Route>
     </Routes>
