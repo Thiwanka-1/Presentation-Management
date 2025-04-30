@@ -104,7 +104,7 @@ export default function TimetableManagement() {
           <tr>
             <th className="border p-2">Group ID</th>
             <th className="border p-2">Number of Days</th>
-            <th className="border p-2">Created At</th>
+            <th className="border p-2">Created Date</th>
             <th className="border p-2">Actions</th>
           </tr>
         </thead>
@@ -112,7 +112,12 @@ export default function TimetableManagement() {
           {filteredTimetables.map((timetable) => (
             <tr key={timetable._id} className="border">
               <td className="p-2">{timetable.group_id}</td>
-              <td className="p-2">{timetable.schedule.length}</td>
+              <td className="p-2">
+  {
+    // Count only days with at least one lecture
+    timetable.schedule.filter(day => Array.isArray(day.lectures) && day.lectures.length > 0).length
+  }
+</td>
               <td className="p-2">
                 {new Date(timetable.created_at).toLocaleDateString()}
               </td>
