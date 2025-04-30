@@ -5,6 +5,7 @@ import axios from "axios";
 export default function UpdateExaminer() {
   const { id } = useParams();
   const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -12,146 +13,217 @@ export default function UpdateExaminer() {
     department: "",
     password: "",
   });
+
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  // Fetch examiner data on mount
+  // Fetch existing examiner data
   useEffect(() => {
-    const fetchExaminer = async () => {
-      try {
-        const res = await axios.get(`/api/examiners/get-ex/${id}`);
-        setFormData({ ...res.data, password: "" }); // Don't prefill password
-      } catch (error) {
-        console.error("Error fetching examiner data", error);
-      }
-    };
-    fetchExaminer();
+    axios
+      .get(`/api/examiners/get-ex/${id}`)
+      .then(res => {
+        setFormData({ ...res.data, password: "" });
+      })
+      .catch(console.error);
   }, [id]);
 
-  // Field validations
-  const validate = () => {
-    const tempErrors = {};
-    if (!/^[a-zA-Z. ]+$/.test(formData.name)) tempErrors.name = "Only letters and '.' allowed";
-    if (!/^[0-9]{10}$/.test(formData.phone)) tempErrors.phone = "Phone must be exactly 10 digits.";
-    if (!/\S+@\S+\.\S+/.test(formData.email)) tempErrors.email = "Invalid email format";
-    if (formData.password && formData.password.length < 6) tempErrors.password = "Password must be at least 6 characters";
-    setErrors(tempErrors);
-    return Object.keys(tempErrors).length === 0;
+  // Single-field validation
+  const validateField = (field) => {
+    const val = formData[field].trim();
+    let msg = "";
+
+    switch (field) {
+      case "name":
+        if (!val) msg = "Name is required.";
+        else if (!/^[A-Za-z. ]+$/.test(val))
+          msg = "Only letters, spaces, and “.” allowed.";
+        break;
+
+      case "email":
+        if (!val) msg = "Email is required.";
+        else if (!/\S+@\S+\.\S+/.test(val))
+          msg = "Invalid email format.";
+        break;
+
+      case "phone":
+        if (!/^\d{10}$/.test(val))
+          msg = "Phone must be exactly 10 digits.";
+        break;
+
+      case "department":
+        if (!val) msg = "Please select a department.";
+        break;
+
+      case "password":
+        if (val && val.length < 6)
+          msg = "Password must be at least 6 characters.";
+        break;
+    }
+
+    setErrors(prev => ({ ...prev, [field]: msg }));
   };
 
-  // Submit handler
+  // Keystroke‐filtered onChange
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    // Name: letters, spaces, dot only
+    if (name === "name" && !/^[A-Za-z. ]*$/.test(value)) return;
+
+    // Phone: digits only up to 10
+    if (name === "phone" && !/^\d{0,10}$/.test(value)) return;
+
+    setFormData(prev => ({ ...prev, [name]: value }));
+
+    // If error already present, revalidate
+    if (errors[name]) validateField(name);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validate()) return;
+    // validate all
+    ["name","email","phone","department","password"].forEach(validateField);
+    if (Object.values(errors).some(Boolean)) return;
 
+    setLoading(true);
     try {
       await axios.put(`/api/examiners/update-ex/${id}`, formData);
       alert("Examiner updated successfully!");
       navigate("/admin-ex-view");
-    } catch (error) {
-      console.error("Error updating examiner", error);
-      alert("Update failed. Please check the inputs and try again.");
+    } catch (err) {
+      console.error(err);
+      alert("Update failed. Please try again.");
+    } finally {
+      setLoading(false);
     }
-  };
-
-  // Input change handler
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   return (
     <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md mt-10">
-      <h2 className="text-3xl font-bold text-center mb-8 text-blue-700">Update Examiner</h2>
+      <h2 className="text-3xl font-bold text-center mb-8 text-blue-700">
+        Update Examiner
+      </h2>
+
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Name */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-1">Examiner Name</label>
+          <label className="block text-gray-700 mb-1">Name</label>
           <input
-            type="text"
             name="name"
             value={formData.name}
             onChange={handleChange}
-            className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-400"
-            required
+            onBlur={() => validateField("name")}
+            className={`w-full p-3 border rounded-md focus:outline-none ${
+              errors.name ? "border-red-500" : "focus:ring-2 focus:ring-blue-400"
+            }`}
+            placeholder="Letters, spaces, and . only"
           />
-          {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+          {errors.name && (
+            <p className="text-red-500 text-sm mt-1">{errors.name}</p>
+          )}
         </div>
 
         {/* Email */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-1">Email</label>
+          <label className="block text-gray-700 mb-1">Email</label>
           <input
-            type="email"
             name="email"
+            type="email"
             value={formData.email}
             onChange={handleChange}
-            className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-400"
-            required
+            onBlur={() => validateField("email")}
+            className={`w-full p-3 border rounded-md focus:outline-none ${
+              errors.email ? "border-red-500" : "focus:ring-2 focus:ring-blue-400"
+            }`}
+            placeholder="you@example.com"
           />
-          {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+          {errors.email && (
+            <p className="text-red-500 text-sm mt-1">{errors.email}</p>
+          )}
         </div>
 
         {/* Phone */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-1">Phone Number</label>
+          <label className="block text-gray-700 mb-1">Phone</label>
           <input
-            type="tel"
             name="phone"
             value={formData.phone}
             onChange={handleChange}
-            pattern="[0-9]*"
-            className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-400"
-            required
+            onBlur={() => validateField("phone")}
+            className={`w-full p-3 border rounded-md focus:outline-none ${
+              errors.phone ? "border-red-500" : "focus:ring-2 focus:ring-blue-400"
+            }`}
+            placeholder="10 digits"
+            inputMode="numeric"
           />
-          {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
+          {errors.phone && (
+            <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
+          )}
         </div>
 
-        {/* Department Dropdown */}
+        {/* Department */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-1">Department</label>
+          <label className="block text-gray-700 mb-1">Department</label>
           <select
             name="department"
             value={formData.department}
             onChange={handleChange}
-            className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-400"
-            required
+            onBlur={() => validateField("department")}
+            className={`w-full p-3 border rounded-md focus:outline-none ${
+              errors.department ? "border-red-500" : "focus:ring-2 focus:ring-blue-400"
+            }`}
           >
-            <option value="" disabled>Select Department</option>
+            <option value="">Select Department</option>
             <option value="IM">IM</option>
             <option value="IT">IT</option>
             <option value="ISC">ISC</option>
             <option value="SE">SE</option>
           </select>
+          {errors.department && (
+            <p className="text-red-500 text-sm mt-1">{errors.department}</p>
+          )}
         </div>
 
-        {/* Password (Optional) */}
+        {/* Password */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-1">New Password (Optional)</label>
+          <label className="block text-gray-700 mb-1">
+            New Password (optional)
+          </label>
           <div className="relative">
             <input
-              type={showPassword ? "text" : "password"}
               name="password"
+              type={showPassword ? "text" : "password"}
               value={formData.password}
               onChange={handleChange}
-              className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-400 pr-10"
-              placeholder="Leave blank to keep existing password"
+              onBlur={() => validateField("password")}
+              className={`w-full p-3 border rounded-md focus:outline-none ${
+                errors.password
+                  ? "border-red-500"
+                  : "focus:ring-2 focus:ring-blue-400"
+              } pr-10`}
+              placeholder="Min 6 chars"
             />
-            <span
-              className="absolute top-3 right-3 text-gray-600 cursor-pointer text-sm"
-              onClick={() => setShowPassword(!showPassword)}
+            <button
+              type="button"
+              onClick={() => setShowPassword(v => !v)}
+              className="absolute inset-y-0 right-3 flex items-center text-sm text-gray-600"
             >
               {showPassword ? "Hide" : "Show"}
-            </span>
+            </button>
           </div>
-          {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
+          {errors.password && (
+            <p className="text-red-500 text-sm mt-1">{errors.password}</p>
+          )}
         </div>
 
         {/* Submit */}
         <button
           type="submit"
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-md font-semibold transition duration-300"
+          disabled={loading}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-md font-semibold transition disabled:opacity-70"
         >
-          Update Examiner
+          {loading ? "Updating..." : "Update Examiner"}
         </button>
       </form>
     </div>
