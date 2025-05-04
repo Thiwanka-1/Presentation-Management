@@ -142,82 +142,99 @@ const AddPresentation = () => {
   // Validate final form
   const validateForm = () => {
     const newErrors = {};
-
+  
     // Title required
     if (!formData.title.trim()) {
       newErrors.title = "Title is required.";
     }
+  
     // Department required
     if (!formData.department) {
       newErrors.department = "Department is required.";
     }
+  
     // At least one student
     const validStudents = formData.students.filter((s) => s);
     if (!validStudents.length) {
       newErrors.students = "At least one student is required.";
     }
-    // numOfExaminers > 0
+  
+    // Number of Examiners > 0
     if (!formData.numOfExaminers || Number(formData.numOfExaminers) < 1) {
       newErrors.numOfExaminers = "Number of Examiners must be at least 1.";
     }
+  
     // Duration > 0
     if (!formData.duration || Number(formData.duration) < 1) {
       newErrors.duration = "Duration must be at least 1 minute.";
     }
-    // Date not in past
-if (!formData.date) {
-  newErrors.date = "Date is required.";
-} else if (formData.date < todayString) {
-  newErrors.date = "Cannot select a past date.";
-} else if (formData.date === todayString) {
-  // If the date is today, ensure startTime is after the current local time
-  const now = new Date();
-  const currentHHMM = now.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }); // e.g. "13:05"
-
-  if (formData.timeRange.startTime && formData.timeRange.startTime <= currentHHMM) {
-    newErrors.date = "Start time must be after the current time if date is today.";
-  }
-}
-
-// Time Range between 08:00 and 18:00
-const start = formData.timeRange.startTime;
-const end = formData.timeRange.endTime;
-if (!start || !end) {
-  newErrors.timeRange = "Start and End times are required.";
-} else {
-  if (start < "08:00" || start > "18:00") {
-    newErrors.timeRange = "Start time must be between 08:00 and 18:00.";
-  } else if (end < "08:00" || end > "18:00") {
-    newErrors.timeRange = "End time must be between 08:00 and 18:00.";
-  } else if (end <= start) {
-    newErrors.timeRange = "End time must be after Start time.";
-  }
-}
-
+  
+    // Date not in past (and if today, time after now)
+    if (!formData.date) {
+      newErrors.date = "Date is required.";
+    } else if (formData.date < todayString) {
+      newErrors.date = "Cannot select a past date.";
+    } else if (formData.date === todayString) {
+      const now = new Date();
+      const currentHHMM = now.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      if (
+        formData.timeRange.startTime &&
+        formData.timeRange.startTime <= currentHHMM
+      ) {
+        newErrors.date =
+          "Start time must be after the current time if date is today.";
+      }
+    }
+  
+    // Time Range between 08:00 and 18:00 + End after Start
+    const start = formData.timeRange.startTime;
+    const end = formData.timeRange.endTime;
+    if (!start || !end) {
+      newErrors.timeRange = "Start and End times are required.";
+    } else if (start < "08:00" || start > "18:00") {
+      newErrors.timeRange = "Start time must be between 08:00 and 18:00.";
+    } else if (end < "08:00" || end > "18:00") {
+      newErrors.timeRange = "End time must be between 08:00 and 18:00.";
+    } else if (end <= start) {
+      newErrors.timeRange = "End time must be after Start time.";
+    } else {
+      // ── NEW: enforce exact duration ────────────────────────────
+      const durationVal = Number(formData.duration);
+      const [sh, sm] = start.split(":").map(Number);
+      const [eh, em] = end.split(":").map(Number);
+      const diffMinutes = eh * 60 + em - (sh * 60 + sm);
+  
+      if (durationVal && diffMinutes !== durationVal) {
+        newErrors.timeRange = `Time slot must be exactly ${durationVal} minutes (you have ${diffMinutes}).`;
+      }
+    }
+  
     // Venue required
     if (!formData.venue) {
       newErrors.venue = "Venue is required.";
     }
-    // Examiners must match numOfExaminers, and must be unique
+  
+    // Examiners count & uniqueness
     if (formData.examiners.length !== Number(formData.numOfExaminers)) {
-      newErrors.examiners = "Please add the exact number of examiners specified.";
+      newErrors.examiners =
+        "Please add the exact number of examiners specified.";
     }
-    const uniqueExaminers = new Set(formData.examiners);
-    if (uniqueExaminers.size !== formData.examiners.length) {
+    if (new Set(formData.examiners).size !== formData.examiners.length) {
       newErrors.examiners = "Examiners must be unique.";
     }
-    // Students must be unique
-    const uniqueStudents = new Set(validStudents);
-    if (uniqueStudents.size !== validStudents.length) {
+  
+    // Students uniqueness
+    if (new Set(validStudents).size !== validStudents.length) {
       newErrors.students = "Students must be unique.";
     }
-
+  
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+  
 
   // Submit form
   const handleSubmit = async (e) => {
