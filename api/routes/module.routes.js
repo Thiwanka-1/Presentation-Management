@@ -3,7 +3,8 @@ import {
   addModule,
   viewAllModules,
   updateModule,
-  deleteModule
+  deleteModule,
+  viewModuleById
 } from "../controllers/modules.controller.js";
 
 const router = express.Router();
@@ -19,5 +20,6 @@ router.put("/update/:id", updateModule);
 
 // Delete module
 router.delete("/delete/:id", deleteModule);
+router.get('/detail/:id', viewModuleById);
 
 export default router;
