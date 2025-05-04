@@ -1079,7 +1079,7 @@ Please be prepared accordingly.
     }
 
     return res.status(200).json({
-      message: "Reschedule request approved, presentation updated, and emails sent.",
+      message: "Reschedule request approved, presentation updated",
     });
   } catch (error) {
     console.error("Error approving/rejecting reschedule:", error);
